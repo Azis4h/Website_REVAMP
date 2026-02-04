@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background-color: #f3f4f6; font-family: 'Inter', sans-serif; }
+    .content-section { display: none; }
+    .accordion-content { display: none; } /* Default Hidden via CSS */
+    .accordion-content.show { display: block; animation: slideDown 0.3s ease-out; }
+    @keyframes slideDown { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+    .modal-scroll::-webkit-scrollbar { width: 8px; }
+    .modal-scroll::-webkit-scrollbar-track { background: #f1f1f1; }
+    .modal-scroll::-webkit-scrollbar-thumb { background: #c7c7c7; border-radius: 4px; }
+  </style>
+</head>
+<body class="flex h-screen overflow-hidden">
+
+  <?!= include('Sidebar'); ?>
+
+  <div class="flex-1 flex flex-col h-full overflow-hidden relative">
+    
+    <div class="bg-white border-b border-gray-200 px-8 py-5 flex justify-between items-center shadow-sm z-10">
+      <div>
+        <h1 id="page-title" class="text-2xl font-bold text-gray-800">Dashboard</h1>
+        <p id="page-desc" class="text-sm text-gray-500 mt-1">Sistem Informasi Sertifikasi & LAT</p>
+      </div>
+      <div class="flex items-center gap-3">
+        <div class="text-right hidden sm:block">
+          <p class="text-sm font-bold text-gray-800">Admin User</p>
+          <p class="text-xs text-gray-500">Administrator</p>
+        </div>
+        <div class="w-10 h-10 rounded-full bg-indigo-100 border border-indigo-200 flex items-center justify-center text-indigo-700 font-bold">A</div>
+      </div>
+    </div>
+
+    <div class="flex-1 overflow-y-auto p-8">
+
+      <div id="loading-container" class="text-center py-20">
+        <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-indigo-600 mx-auto"></div>
+        <p class="mt-4 text-gray-500">Memuat Data...</p>
+      </div>
+
+      <div id="page-dashboard" class="content-section hidden">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4">
+            <div class="w-12 h-12 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center text-xl">👥</div>
+            <div>
+              <p class="text-sm text-gray-500 font-medium">Total Karyawan</p>
+              <h3 class="text-2xl font-bold text-gray-900" id="dash-total-karyawan">0</h3>
+            </div>
+          </div>
+          <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4">
+            <div class="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-lg flex items-center justify-center text-xl">📜</div>
+            <div>
+              <p class="text-sm text-gray-500 font-medium">Total Sertifikasi</p>
+              <h3 class="text-2xl font-bold text-gray-900" id="dash-total-cert">0</h3>
+            </div>
+          </div>
+          <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4">
+            <div class="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-lg flex items-center justify-center text-xl">📚</div>
+            <div>
+              <p class="text-sm text-gray-500 font-medium">Total LAT</p>
+              <h3 class="text-2xl font-bold text-gray-900" id="dash-total-lat">0</h3>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="page-perencanaan" class="content-section hidden">
+        
+        <div id="view-planning-years" class="block">
+          <h3 class="text-lg font-bold text-gray-700 mb-4">Pilih Periode Tahun</h3>
+          <div id="years-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"></div>
+        </div>
+
+        <div id="view-planning-list" class="hidden">
+          
+          <div class="mb-6 bg-white p-4 rounded-xl shadow-sm border border-gray-100 relative z-30">
+            <div class="flex flex-col lg:flex-row gap-4 justify-between">
+                <div class="flex items-center gap-4">
+                    <button onclick="backToYears()" class="flex items-center gap-2 px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-100 hover:text-indigo-600 transition-colors shadow-sm text-sm font-medium">
+                        ⬅ Kembali
+                    </button>
+                    <div class="relative inline-block text-left">
+                        <button onclick="toggleAddDropdown(event)" class="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-md text-sm font-medium">
+                            + Tambah Data
+                        </button>
+                        <div id="add-dropdown-menu" class="hidden absolute left-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-50">
+                            <div class="py-1">
+                                <a href="#" onclick="openModal('cert'); return false;" class="block px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50">Tambah Sertifikasi</a>
+                                <a href="#" onclick="openModal('lat'); return false;" class="block px-4 py-2 text-sm text-gray-700 hover:bg-emerald-50">Tambah LAT</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex flex-col sm:flex-row gap-3 items-center w-full lg:w-auto">
+                    <select id="emp-filter-status" onchange="renderEmployeeList()" class="appearance-none w-full sm:w-48 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                        <option value="">Semua Status</option>
+                        <option value="Tersedia">Anggaran Tersedia</option>
+                        <option value="Tidak Tersedia">Tidak Tersedia</option>
+                    </select>
+                    <input type="text" id="emp-search-input" oninput="renderEmployeeList()" placeholder="Cari Nama / SAP..." class="w-full sm:w-64 px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+            </div>
+            <div class="mt-2 text-xs text-gray-400 text-right w-full">
+                Menampilkan data untuk: <span id="selected-year-display" class="font-bold text-gray-600">...</span>
+            </div>
+          </div>
+
+          <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div class="grid grid-cols-12 bg-gray-50 px-6 py-3 border-b border-gray-200 text-xs font-bold text-gray-500 uppercase tracking-wider">
+              <div class="col-span-1">No</div>
+              <div class="col-span-2">SAP</div>
+              <div class="col-span-8">Nama Karyawan</div>
+              <div class="col-span-1 text-center">Detail</div>
+            </div>
+            <div id="employee-list-container" class="divide-y divide-gray-100"></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <div id="data-modal" class="fixed inset-0 z-[60] hidden">
+    <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+        <div class="fixed inset-0 bg-gray-500 bg-opacity-75" onclick="closeModal()"></div>
+        <div class="inline-block align-bottom bg-white rounded-xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+            <div class="bg-gray-50 px-4 py-3 border-b border-gray-200 flex justify-between items-center">
+                <h3 class="text-lg leading-6 font-bold text-gray-900" id="modal-title">Tambah Data</h3>
+                <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+            <form id="addForm" onsubmit="saveData(event)" class="max-h-[80vh] overflow-y-auto modal-scroll px-6 py-6 space-y-4">
+                <input type="hidden" id="form-type" value="cert">
+                <input type="hidden" id="form-nama-hidden">
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Pilih Karyawan</label>
+                    <select id="form-sap-select" required onchange="updateHiddenName()" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white">
+                        <option value="">-- Pilih --</option>
+                    </select>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Item ID</label>
+                        <input type="text" id="form-itemId" required class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Rencana (Bulan Tahun)</label>
+                        <input type="text" id="form-periode" placeholder="Contoh: Jan 2026" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Judul / Course Title</label>
+                    <input type="text" id="form-judul" required class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                </div>
+
+                <div id="fields-cert">
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Jumlah Anggaran</label>
+                            <input type="text" id="form-jumlah" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                            <select id="form-status" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                                <option value="Tersedia">Tersedia</option>
+                                <option value="Tidak Tersedia">Tidak Tersedia</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="fields-lat" class="hidden">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Instruktur</label>
+                        <input type="text" id="form-instruktur" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Mandatory</label>
+                        <input type="text" id="form-mandatory" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Risiko</label>
+                        <input type="text" id="form-resiko" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                    </div>
+                </div>
+
+                <div class="pt-4 flex justify-end gap-3 border-t border-gray-200 mt-4">
+                    <button type="button" onclick="closeModal()" class="px-4 py-2 bg-white text-gray-700 rounded-lg border border-gray-300 text-sm">Batal</button>
+                    <button type="submit" id="btn-save" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm">Simpan</button>
+                </div>
+            </form>
+        </div>
+    </div>
+  </div>
+
+<script>
+  let DATA_CERT = [];
+  let DATA_LAT = [];
+  let CURRENT_YEAR_GROUPS = {}; 
+  // Cache for filtered lists
+  let FILTERED_CERT = [];
+  let FILTERED_LAT = [];
+
+  window.onload = function() {
+    loadData();
+    // Tutup dropdown saat klik luar
+    document.addEventListener('click', function(e) {
+        const btn = document.querySelector('button[onclick="toggleAddDropdown(event)"]');
+        const menu = document.getElementById('add-dropdown-menu');
+        if (btn && menu && !btn.contains(e.target) && !menu.contains(e.target)) {
+            menu.classList.add('hidden');
+        }
+    });
+  };
+
+  function loadData() {
+    google.script.run.withSuccessHandler(onCertLoaded).withFailureHandler(onFailure).getData();
+  }
+
+  function onCertLoaded(data) {
+    DATA_CERT = data || [];
+    google.script.run.withSuccessHandler(onLatLoaded).withFailureHandler(onFailure).getLATData();
+  }
+
+  function onLatLoaded(data) {
+    DATA_LAT = data || [];
+    document.getElementById('loading-container').style.display = 'none';
+    
+    // Default show Dashboard
+    openSubPage('page-dashboard', 'Dashboard');
+    updateDashboardStats();
+  }
+
+  function onFailure(error) {
+    alert("Error Backend: " + error.message);
+  }
+
+  function updateDashboardStats() {
+    const uniqueSAP = new Set();
+    DATA_CERT.forEach(d => uniqueSAP.add(d.sap));
+    DATA_LAT.forEach(d => uniqueSAP.add(d.sap));
+
+    document.getElementById('dash-total-karyawan').innerText = uniqueSAP.size;
+    document.getElementById('dash-total-cert').innerText = DATA_CERT.length;
+    document.getElementById('dash-total-lat').innerText = DATA_LAT.length;
+  }
+
+  function openSubPage(pageId, pageTitle) {
+    document.querySelectorAll('.content-section').forEach(el => {
+        el.style.display = 'none';
+        el.classList.add('hidden');
+    });
+    
+    const target = document.getElementById(pageId);
+    if(target) {
+        target.style.display = 'block';
+        target.classList.remove('hidden');
+    }
+    
+    document.getElementById('page-title').innerText = pageTitle;
+    if (pageId === 'page-perencanaan') renderYearCards();
+  }
+
+  function renderYearCards() {
+    document.getElementById('view-planning-years').classList.remove('hidden');
+    document.getElementById('view-planning-list').classList.add('hidden');
+
+    const years = new Set();
+    [...DATA_CERT, ...DATA_LAT].forEach(item => {
+      if (item && item.periode) {
+        const match = item.periode.toString().match(/20\d{2}/);
+        if (match) years.add(match[0]);
+      }
+    });
+
+    const container = document.getElementById('years-grid');
+    container.innerHTML = '';
+
+    if (years.size === 0) {
+      container.innerHTML = '<div class="col-span-full py-12 text-center text-gray-400">Belum ada data tahun (20xx).</div>';
+      return;
+    }
+
+    Array.from(years).sort().reverse().forEach(year => {
+      const card = document.createElement('div');
+      card.className = "bg-white p-8 rounded-xl border border-gray-200 shadow-sm hover:shadow-lg cursor-pointer transition-all flex flex-col items-center justify-center gap-3";
+      card.onclick = () => openYearDetail(year);
+      card.innerHTML = `
+        <div class="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mb-2 text-2xl font-bold">📅</div>
+        <h3 class="text-xl font-bold text-gray-800">${year}</h3>
+        <span class="text-xs text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full">Lihat Data</span>
+      `;
+      container.appendChild(card);
+    });
+  }
+
+  function openYearDetail(year) {
+    document.getElementById('view-planning-years').classList.add('hidden');
+    document.getElementById('view-planning-list').classList.remove('hidden');
+    document.getElementById('selected-year-display').innerText = "Tahun " + year;
+    document.getElementById('emp-search-input').value = '';
+    document.getElementById('emp-filter-status').value = '';
+
+    // Filter Global Data -> Filtered Cache
+    const filterFunc = (item) => item.periode && item.periode.toString().includes(year);
+    FILTERED_CERT = DATA_CERT.filter(filterFunc);
+    FILTERED_LAT = DATA_LAT.filter(filterFunc);
+
+    renderEmployeeList();
+  }
+
+  function renderEmployeeList() {
+    const container = document.getElementById('employee-list-container');
+    container.innerHTML = '';
+    const searchQuery = document.getElementById('emp-search-input').value.toLowerCase();
+    const statusFilter = document.getElementById('emp-filter-status').value;
+
+    // Grouping
+    CURRENT_YEAR_GROUPS = {};
+    [...FILTERED_CERT, ...FILTERED_LAT].forEach(item => {
+        const safeSap = String(item.sap).trim(); // Key Kunci
+        if (!CURRENT_YEAR_GROUPS[safeSap]) {
+            CURRENT_YEAR_GROUPS[safeSap] = { name: item.nama, certs: [], lats: [] };
+        }
+        if (item.type === 'cert') CURRENT_YEAR_GROUPS[safeSap].certs.push(item);
+        else CURRENT_YEAR_GROUPS[safeSap].lats.push(item);
+    });
+
+    const saps = Object.keys(CURRENT_YEAR_GROUPS);
+    if (saps.length === 0) {
+        container.innerHTML = '<div class="p-8 text-center text-gray-400">Tidak ada data.</div>';
+        return;
+    }
+
+    let hasData = false;
+    
+    // Sort by name
+    saps.sort((a,b) => CURRENT_YEAR_GROUPS[a].name.localeCompare(CURRENT_YEAR_GROUPS[b].name)).forEach((sap, index) => {
+        const g = CURRENT_YEAR_GROUPS[sap];
+        
+        // Search Filter
+        const txt = (g.name + " " + sap).toLowerCase();
+        if (!txt.includes(searchQuery)) return;
+
+        // Status Filter
+        if (statusFilter !== "") {
+            const match = g.certs.some(c => c.statusAnggaran === statusFilter);
+            if (!match) return; 
+        }
+
+        hasData = true;
+        // Use Index as ID to be 100% safe
+        const uniqueID = `emp-${index}`; 
+        
+        const div = document.createElement('div');
+        div.className = "bg-white group border-b border-gray-100";
+        div.innerHTML = `
+            <div onclick="toggleAccordion('${uniqueID}')" class="grid grid-cols-12 px-6 py-4 items-center cursor-pointer hover:bg-indigo-50 transition-colors select-none">
+                <div class="col-span-1 text-gray-500 font-mono text-xs">${index + 1}</div>
+                <div class="col-span-2 text-gray-900 font-mono text-sm font-medium">${sap}</div>
+                <div class="col-span-8 text-gray-700 font-medium text-sm">
+                    ${g.name}
+                    <div class="flex gap-2 mt-1">
+                        ${g.certs.length > 0 ? `<span class="text-[10px] px-2 py-0.5 bg-blue-50 text-blue-600 rounded border border-blue-100 font-semibold">${g.certs.length} Cert</span>` : ''}
+                        ${g.lats.length > 0 ? `<span class="text-[10px] px-2 py-0.5 bg-emerald-50 text-emerald-600 rounded border border-emerald-100 font-semibold">${g.lats.length} LAT</span>` : ''}
+                    </div>
+                </div>
+                <div class="col-span-1 text-center text-gray-400">
+                    <span id="icon-${uniqueID}">▼</span>
+                </div>
+            </div>
+
+            <div id="content-${uniqueID}" class="accordion-content bg-gray-50 border-t border-gray-200 hidden">
+                <div class="p-6">
+                    
+                    <div class="flex items-center gap-2 mb-4">
+                        <span class="text-[10px] font-bold text-gray-400 uppercase mr-2">Show:</span>
+                        <button onclick="filterDetail(event, '${uniqueID}', 'all')" class="px-3 py-1 text-xs font-medium bg-indigo-600 text-white rounded-full">All</button>
+                        <button onclick="filterDetail(event, '${uniqueID}', 'cert')" class="px-3 py-1 text-xs font-medium bg-white text-gray-600 border border-gray-300 rounded-full">Cert</button>
+                        <button onclick="filterDetail(event, '${uniqueID}', 'lat')" class="px-3 py-1 text-xs font-medium bg-white text-gray-600 border border-gray-300 rounded-full">LAT</button>
+                    </div>
+
+                    <div class="space-y-4">
+                        <div id="wrapper-${uniqueID}-cert" class="${g.certs.length === 0 ? 'hidden' : ''}">
+                            ${g.certs.length > 0 ? `
+                            <div class="bg-white rounded-lg border border-blue-200 overflow-hidden">
+                                <div class="bg-blue-50 px-4 py-2 border-b border-blue-200 text-xs font-bold text-blue-700">SERTIFIKASI</div>
+                                <table class="w-full text-xs text-left">
+                                    <thead class="bg-gray-50 text-gray-500 font-semibold border-b">
+                                        <tr><th class="px-4 py-2">ID</th><th class="px-4 py-2">Judul</th><th class="px-4 py-2">Plan</th><th class="px-4 py-2">Status</th></tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-gray-100">
+                                        ${g.certs.map(c => `
+                                            <tr>
+                                                <td class="px-4 py-2 font-mono text-gray-500">${c.itemId}</td>
+                                                <td class="px-4 py-2 font-medium">${c.judul}</td>
+                                                <td class="px-4 py-2">${c.periode}</td>
+                                                <td class="px-4 py-2"><span class="px-2 py-0.5 rounded ${c.statusAnggaran === 'Tersedia' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">${c.statusAnggaran}</span></td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>` : ''}
+                        </div>
+
+                        <div id="wrapper-${uniqueID}-lat" class="${g.lats.length === 0 ? 'hidden' : ''}">
+                            ${g.lats.length > 0 ? `
+                            <div class="bg-white rounded-lg border border-emerald-200 overflow-hidden">
+                                <div class="bg-emerald-50 px-4 py-2 border-b border-emerald-200 text-xs font-bold text-emerald-700">LAT</div>
+                                <table class="w-full text-xs text-left">
+                                    <thead class="bg-gray-50 text-gray-500 font-semibold border-b">
+                                        <tr><th class="px-4 py-2">ID</th><th class="px-4 py-2">Judul</th><th class="px-4 py-2">Instruktur</th><th class="px-4 py-2">Plan</th></tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-gray-100">
+                                        ${g.lats.map(l => `
+                                            <tr>
+                                                <td class="px-4 py-2 font-mono text-gray-500">${l.itemId}</td>
+                                                <td class="px-4 py-2 font-medium">${l.judul}</td>
+                                                <td class="px-4 py-2">${l.instruktur}</td>
+                                                <td class="px-4 py-2">${l.periode}</td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            </div>` : ''}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        container.appendChild(div);
+    });
+
+    if(!hasData) container.innerHTML = '<div class="p-8 text-center text-gray-400">Data tidak ditemukan.</div>';
+  }
+
+  function toggleAccordion(uid) {
+    const el = document.getElementById('content-' + uid);
+    if (el.classList.contains('hidden')) {
+        el.classList.remove('hidden');
+        el.classList.add('show');
+    } else {
+        el.classList.add('hidden');
+        el.classList.remove('show');
+    }
+  }
+
+  function filterDetail(e, uid, type) {
+    e.stopPropagation();
+    const cert = document.getElementById(`wrapper-${uid}-cert`);
+    const lat = document.getElementById(`wrapper-${uid}-lat`);
+    
+    if (type === 'all') { cert.classList.remove('hidden-force'); lat.classList.remove('hidden-force'); }
+    else if (type === 'cert') { cert.classList.remove('hidden-force'); lat.classList.add('hidden-force'); }
+    else { cert.classList.add('hidden-force'); lat.classList.remove('hidden-force'); }
+  }
+
+  function toggleAddDropdown(e) {
+    if(e) e.stopPropagation();
+    document.getElementById('add-dropdown-menu').classList.toggle('hidden');
+  }
+
+  function populateNameDropdown() {
+    const select = document.getElementById('form-sap-select');
+    select.innerHTML = '<option value="">-- Pilih Karyawan --</option>';
+    const employees = new Map();
+    [...DATA_CERT, ...DATA_LAT].forEach(d => { if(d.sap && d.nama) employees.set(d.sap, d.nama); });
+    Array.from(employees.entries()).sort((a, b) => a[1].localeCompare(b[1])).forEach(([sap, nama]) => {
+        const option = document.createElement('option');
+        option.value = sap;
+        option.text = `${nama} (${sap})`;
+        option.setAttribute('data-nama', nama);
+        select.appendChild(option);
+    });
+  }
+
+  function updateHiddenName() {
+    const select = document.getElementById('form-sap-select');
+    const nama = select.options[select.selectedIndex].getAttribute('data-nama');
+    document.getElementById('form-nama-hidden').value = nama || "";
+  }
+
+  function openModal(type) {
+    document.getElementById('add-dropdown-menu').classList.add('hidden');
+    populateNameDropdown();
+    const modal = document.getElementById('data-modal');
+    modal.classList.remove('hidden');
+    document.getElementById('form-type').value = type;
+    document.getElementById('modal-title').innerText = type === 'cert' ? 'Tambah Sertifikasi' : 'Tambah LAT';
+    
+    if(type === 'cert') {
+        document.getElementById('fields-cert').classList.remove('hidden');
+        document.getElementById('fields-lat').classList.add('hidden');
+    } else {
+        document.getElementById('fields-cert').classList.add('hidden');
+        document.getElementById('fields-lat').classList.remove('hidden');
+    }
+  }
+
+  function closeModal() {
+    document.getElementById('data-modal').classList.add('hidden');
+    document.getElementById('addForm').reset();
+  }
+
+  function saveData(event) {
+    event.preventDefault();
+    const btn = document.getElementById('btn-save');
+    btn.innerText = "Menyimpan...";
+    btn.disabled = true;
+
+    const formData = {
+        sap: document.getElementById('form-sap-select').value,
+        nama: document.getElementById('form-nama-hidden').value,
+        itemId: document.getElementById('form-itemId').value,
+        judul: document.getElementById('form-judul').value,
+        periode: document.getElementById('form-periode').value,
+        mandatory: document.getElementById('form-mandatory').value,
+        resiko: document.getElementById('form-resiko').value,
+    };
+
+    const type = document.getElementById('form-type').value;
+    if (type === 'cert') {
+        formData.jumlah = document.getElementById('form-jumlah').value;
+        formData.statusAnggaran = document.getElementById('form-status').value;
+        google.script.run.withSuccessHandler(() => { alert('Sukses!'); closeModal(); loadData(); btn.disabled = false; btn.innerText = 'Simpan'; }).addData(formData);
+    } else {
+        formData.instruktur = document.getElementById('form-instruktur').value;
+        google.script.run.withSuccessHandler(() => { alert('Sukses!'); closeModal(); loadData(); btn.disabled = false; btn.innerText = 'Simpan'; }).addLATData(formData);
+    }
+  }
+
+  function backToYears() {
+    document.getElementById('view-planning-list').classList.add('hidden');
+    document.getElementById('view-planning-years').classList.remove('hidden');
+  }
+</script>
+
+</body>
+</html>
