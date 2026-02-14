@@ -134,10 +134,11 @@
       <div id="page-dashboard" class="content-section hidden">
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4">
-            <div class="w-12 h-12 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center text-xl">👥</div>
+            <div class="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-lg flex items-center justify-center text-xl">�
+            </div>
             <div>
-              <p class="text-sm text-gray-500 font-medium">Total Karyawan</p>
-              <h3 class="text-2xl font-bold text-gray-900" id="dash-total-karyawan">0</h3>
+              <p class="text-sm text-gray-500 font-medium">Total Pelaksanaan</p>
+              <h3 class="text-2xl font-bold text-gray-900" id="dash-total-pelaksanaan">0</h3>
             </div>
           </div>
           <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4">
@@ -632,10 +633,10 @@
         }
 
         function updateDashboardStats() {
-          const uniqueSAP = new Set();
-          DATA_CERT.forEach(d => uniqueSAP.add(d.sap));
-          DATA_LAT.forEach(d => uniqueSAP.add(d.sap));
-          document.getElementById('dash-total-karyawan').innerText = uniqueSAP.size;
+          // Calculate total pelaksanaan from all years
+          const totalPelaksanaan = DATA_REAL.length;
+
+          document.getElementById('dash-total-pelaksanaan').innerText = totalPelaksanaan;
           document.getElementById('dash-total-cert').innerText = DATA_CERT.length;
           document.getElementById('dash-total-lat').innerText = DATA_LAT.length;
         }
@@ -936,7 +937,7 @@
           }
 
           // 2. Year Cards
-          validYears.sort().reverse().forEach(year => {
+          validYears.sort().forEach(year => {
             const card = document.createElement('div');
             card.className = "bg-white p-8 rounded-xl border border-emerald-200 shadow-sm cursor-pointer hover:shadow-lg transition-all";
             card.innerHTML = `
