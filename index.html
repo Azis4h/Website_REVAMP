@@ -1,26 +1,114 @@
 <!DOCTYPE html>
 <html>
+
 <head>
   <base target="_top">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js'></script>
   <style>
-    body { background-color: #f3f4f6; font-family: 'Inter', sans-serif; }
-    .content-section { display: none; }
-    .accordion-content { display: none; } /* Default Hidden via CSS */
-    .accordion-content.show { display: block; animation: slideDown 0.3s ease-out; }
-    @keyframes slideDown { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
-    .modal-scroll::-webkit-scrollbar { width: 8px; }
-    .modal-scroll::-webkit-scrollbar-track { background: #f1f1f1; }
-    .modal-scroll::-webkit-scrollbar-thumb { background: #c7c7c7; border-radius: 4px; }
+    body {
+      background-color: #f3f4f6;
+      font-family: 'Inter', sans-serif;
+    }
+
+    .content-section {
+      display: none;
+    }
+
+    .accordion-content {
+      display: none;
+    }
+
+    .accordion-content.show {
+      display: block;
+      animation: slideDown 0.3s ease-out;
+    }
+
+    @keyframes slideDown {
+      from {
+        opacity: 0;
+        transform: translateY(-5px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .modal-scroll::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    .modal-scroll::-webkit-scrollbar-track {
+      background: #f1f1f1;
+    }
+
+    .modal-scroll::-webkit-scrollbar-thumb {
+      background: #c7c7c7;
+      border-radius: 4px;
+    }
+
+    th {
+      white-space: nowrap;
+    }
+
+    /* Month Cards Styling */
+    .month-card {
+      background: white;
+      border: 2px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100px;
+    }
+
+    .month-card.active:hover {
+      border-color: #6366f1;
+      background: #eef2ff;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+    }
+
+    .month-card.disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      background: #f9fafb;
+    }
+
+    .month-card h3 {
+      font-size: 18px;
+      font-weight: 700;
+      color: #1f2937;
+      margin: 0 0 8px 0;
+    }
+
+    .month-card p {
+      font-size: 12px;
+      color: #6b7280;
+      margin: 0;
+    }
+
+    .month-card.active p {
+      color: #4f46e5;
+      font-weight: 600;
+    }
   </style>
 </head>
+
 <body class="flex h-screen overflow-hidden">
 
   <?!= include('Sidebar'); ?>
 
   <div class="flex-1 flex flex-col h-full overflow-hidden relative">
-    
+
     <div class="bg-white border-b border-gray-200 px-8 py-5 flex justify-between items-center shadow-sm z-10">
       <div>
         <h1 id="page-title" class="text-2xl font-bold text-gray-800">Dashboard</h1>
@@ -29,9 +117,10 @@
       <div class="flex items-center gap-3">
         <div class="text-right hidden sm:block">
           <p class="text-sm font-bold text-gray-800">Admin User</p>
-          <p class="text-xs text-gray-500">Administrator</p>
         </div>
-        <div class="w-10 h-10 rounded-full bg-indigo-100 border border-indigo-200 flex items-center justify-center text-indigo-700 font-bold">A</div>
+        <div
+          class="w-10 h-10 rounded-full bg-indigo-100 border border-indigo-200 flex items-center justify-center text-indigo-700 font-bold">
+          A</div>
       </div>
     </div>
 
@@ -52,14 +141,16 @@
             </div>
           </div>
           <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4">
-            <div class="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-lg flex items-center justify-center text-xl">📜</div>
+            <div class="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-lg flex items-center justify-center text-xl">📜
+            </div>
             <div>
               <p class="text-sm text-gray-500 font-medium">Total Sertifikasi</p>
               <h3 class="text-2xl font-bold text-gray-900" id="dash-total-cert">0</h3>
             </div>
           </div>
           <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex items-center gap-4">
-            <div class="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-lg flex items-center justify-center text-xl">📚</div>
+            <div class="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-lg flex items-center justify-center text-xl">📚
+            </div>
             <div>
               <p class="text-sm text-gray-500 font-medium">Total LAT</p>
               <h3 class="text-2xl font-bold text-gray-900" id="dash-total-lat">0</h3>
@@ -69,302 +160,671 @@
       </div>
 
       <div id="page-perencanaan" class="content-section hidden">
-        
-        <div id="view-planning-years" class="block">
-          <h3 class="text-lg font-bold text-gray-700 mb-4">Pilih Periode Tahun</h3>
-          <div id="years-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"></div>
+
+        <!-- Header & Toggle -->
+        <div class="flex justify-between items-center mb-6">
+          <div>
+            <h2 class="text-xl font-bold text-gray-800">Perencanaan</h2>
+            <p class="text-xs text-gray-500">Kelola jadwal sertifikasi dan LAT</p>
+          </div>
+          <div class="flex bg-gray-100 p-1 rounded-lg border border-gray-200">
+            <button onclick="switchViewMode('list')" id="btn-mode-list"
+              class="px-3 py-1.5 rounded-md text-xs font-semibold bg-white text-indigo-600 shadow-sm border border-gray-200 transition-all">List
+              View</button>
+            <button onclick="switchViewMode('calendar')" id="btn-mode-calendar"
+              class="px-3 py-1.5 rounded-md text-xs font-medium text-gray-500 hover:text-indigo-600 transition-all">Calendar
+              View</button>
+          </div>
         </div>
 
-        <div id="view-planning-list" class="hidden">
-          
-          <div class="mb-6 bg-white p-4 rounded-xl shadow-sm border border-gray-100 relative z-30">
-            <div class="flex flex-col lg:flex-row gap-4 justify-between">
-                <div class="flex items-center gap-4">
-                    <button onclick="backToYears()" class="flex items-center gap-2 px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-100 hover:text-indigo-600 transition-colors shadow-sm text-sm font-medium">
-                        ⬅ Kembali
-                    </button>
-                    <div class="relative inline-block text-left">
-                        <button onclick="toggleAddDropdown(event)" class="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-md text-sm font-medium">
-                            + Tambah Data
-                        </button>
-                        <div id="add-dropdown-menu" class="hidden absolute left-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-50">
-                            <div class="py-1">
-                                <a href="#" onclick="openModal('cert'); return false;" class="block px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50">Tambah Sertifikasi</a>
-                                <a href="#" onclick="openModal('lat'); return false;" class="block px-4 py-2 text-sm text-gray-700 hover:bg-emerald-50">Tambah LAT</a>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+        <!-- CALENDAR VIEW CONTAINER -->
+        <div id="view-planning-calendar" class="hidden">
+          <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+            <div id="calendar"></div>
+          </div>
+        </div>
 
-                <div class="flex flex-col sm:flex-row gap-3 items-center w-full lg:w-auto">
-                    <select id="emp-filter-status" onchange="renderEmployeeList()" class="appearance-none w-full sm:w-48 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                        <option value="">Semua Status</option>
-                        <option value="Tersedia">Anggaran Tersedia</option>
-                        <option value="Tidak Tersedia">Tidak Tersedia</option>
-                    </select>
-                    <input type="text" id="emp-search-input" oninput="renderEmployeeList()" placeholder="Cari Nama / SAP..." class="w-full sm:w-64 px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                </div>
+        <!-- LIST VIEW CONTAINER (Existing Views) -->
+        <div id="container-planning-list">
+          <!-- View 1: Year Selection -->
+          <div id="view-planning-years" class="block">
+            <h3 class="text-lg font-bold text-gray-700 mb-4">Pilih Periode Tahun</h3>
+            <div id="years-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6"></div>
+          </div>
+
+          <!-- View 2: Month Selection (NEW!) -->
+          <div id="view-planning-months" class="hidden">
+            <div class="mb-6">
+              <button onclick="backToYears()"
+                class="flex items-center gap-2 px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors shadow-sm text-sm font-medium">
+                ⬅ Kembali
+              </button>
             </div>
-            <div class="mt-2 text-xs text-gray-400 text-right w-full">
-                Menampilkan data untuk: <span id="selected-year-display" class="font-bold text-gray-600">...</span>
+            <h3 class="text-lg font-bold text-gray-700 mb-2">Pilih Bulan</h3>
+            <p class="text-sm text-gray-500 mb-6">Tahun: <span id="selected-year-months"
+                class="font-bold text-indigo-600"></span></p>
+            <div id="months-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4"></div>
+          </div>
+
+          <div id="view-planning-list" class="hidden">
+            <div class="mb-6 bg-white p-4 rounded-xl shadow-sm border border-gray-100 relative z-30">
+              <div class="flex flex-col lg:flex-row gap-4 justify-between">
+                <div class="flex items-center gap-4">
+                  <button onclick="backToYears()"
+                    class="flex items-center gap-2 px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors shadow-sm text-sm font-medium">⬅
+                    Kembali</button>
+                  <div class="relative inline-block text-left">
+                    <button onclick="toggleAddDropdown(event)"
+                      class="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors shadow-md text-sm font-medium">+
+                      Tambah Data</button>
+                    <div id="add-dropdown-menu"
+                      class="hidden absolute left-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none z-50">
+                      <div class="py-1">
+                        <a href="#" onclick="openModal('cert'); return false;"
+                          class="block px-4 py-2 text-sm text-gray-700 hover:bg-indigo-50">Tambah Sertifikasi</a>
+                        <a href="#" onclick="openModal('lat'); return false;"
+                          class="block px-4 py-2 text-sm text-gray-700 hover:bg-emerald-50">Tambah LAT</a>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="flex flex-col sm:flex-row gap-3 items-center w-full lg:w-auto">
+                  <select id="emp-filter-status" onchange="renderEmployeeList()"
+                    class="appearance-none w-full sm:w-48 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <option value="">Semua Status</option>
+                    <option value="Tersedia">Anggaran Tersedia</option>
+                    <option value="Tidak Tersedia">Tidak Tersedia</option>
+                  </select>
+                  <input type="text" id="emp-search-input" oninput="renderEmployeeList()"
+                    placeholder="Cari Nama / SAP..."
+                    class="w-full sm:w-64 px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+              </div>
+              <div class="mt-2 text-xs text-gray-400 text-right w-full">Menampilkan data untuk: <span
+                  id="selected-year-display" class="font-bold text-gray-600">...</span></div>
+            </div>
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+              <div
+                class="grid grid-cols-12 bg-gray-50 px-6 py-3 border-b border-gray-200 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                <div class="col-span-1">No</div>
+                <div class="col-span-2">SAP</div>
+                <div class="col-span-8">Nama Karyawan</div>
+                <div class="col-span-1 text-center">Detail</div>
+              </div>
+              <div id="employee-list-container" class="divide-y divide-gray-100"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="page-pelaksanaan" class="content-section hidden">
+
+        <!-- Header & Toggle -->
+        <div class="flex justify-between items-center mb-6">
+          <div>
+            <h2 class="text-xl font-bold text-gray-800">Pelaksanaan</h2>
+            <p class="text-xs text-gray-500">Data realisasi pelaksanaan</p>
+          </div>
+          <div class="flex bg-gray-100 p-1 rounded-lg border border-gray-200">
+            <button onclick="switchRealizationViewMode('list')" id="btn-real-mode-list"
+              class="px-3 py-1.5 rounded-md text-xs font-semibold bg-white text-emerald-600 shadow-sm border border-gray-200 transition-all">List
+              View</button>
+            <button onclick="switchRealizationViewMode('calendar')" id="btn-real-mode-calendar"
+              class="px-3 py-1.5 rounded-md text-xs font-medium text-gray-500 hover:text-emerald-600 transition-all">Calendar
+              View</button>
+          </div>
+        </div>
+
+        <!-- CALENDAR VIEW CONTAINER -->
+        <div id="view-realization-calendar" class="hidden">
+          <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+            <div id="calendar-realization"></div>
+          </div>
+        </div>
+
+        <!-- LIST VIEW CONTAINER -->
+        <div id="container-realization-list">
+          <div id="view-realization-years" class="block">
+            <h3 class="text-lg font-bold text-gray-700 mb-4">Pilih Tahun Pelaksanaan</h3>
+            <div id="years-grid-realization"
+              class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             </div>
           </div>
 
-          <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-            <div class="grid grid-cols-12 bg-gray-50 px-6 py-3 border-b border-gray-200 text-xs font-bold text-gray-500 uppercase tracking-wider">
-              <div class="col-span-1">No</div>
-              <div class="col-span-2">SAP</div>
-              <div class="col-span-8">Nama Karyawan</div>
-              <div class="col-span-1 text-center">Detail</div>
+          <div id="view-realization-list" class="hidden">
+            <div class="mb-6 bg-white p-4 rounded-xl shadow-sm border border-gray-100 relative z-30">
+              <div class="flex flex-col lg:flex-row gap-4 justify-between">
+                <div class="flex items-center gap-4">
+                  <button onclick="backToRealizationYears()"
+                    class="flex items-center gap-2 px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors shadow-sm text-sm font-medium">⬅
+                    Kembali</button>
+                  <button onclick="openRealizationModal('add', null)"
+                    class="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors shadow-md text-sm font-medium">+
+                    Tambah Data</button>
+                </div>
+                <div class="flex flex-col sm:flex-row gap-3 items-center w-full lg:w-auto">
+                  <input type="text" id="real-search-input" oninput="renderRealizationList()"
+                    placeholder="Cari Nama / SAP..."
+                    class="w-full sm:w-64 px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-emerald-500">
+                </div>
+              </div>
+              <div class="mt-2 text-xs text-gray-400 text-right w-full">Data Pelaksanaan: <span
+                  id="selected-year-realization" class="font-bold text-emerald-600">...</span></div>
             </div>
-            <div id="employee-list-container" class="divide-y divide-gray-100"></div>
+
+            <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+              <div
+                class="grid grid-cols-12 bg-gray-50 px-6 py-3 border-b border-gray-200 text-xs font-bold text-gray-500 uppercase tracking-wider">
+                <div class="col-span-1">No</div>
+                <div class="col-span-2">SAP</div>
+                <div class="col-span-8">Nama Peserta</div>
+                <div class="col-span-1 text-center">Detail</div>
+              </div>
+              <div id="realization-list-container" class="divide-y divide-gray-100"></div>
+            </div>
           </div>
         </div>
 
       </div>
-    </div>
-  </div>
 
-  <div id="data-modal" class="fixed inset-0 z-[60] hidden">
-    <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
-        <div class="fixed inset-0 bg-gray-500 bg-opacity-75" onclick="closeModal()"></div>
-        <div class="inline-block align-bottom bg-white rounded-xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
+      <div id="data-modal" class="fixed inset-0 z-[60] hidden">
+        <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+          <div class="fixed inset-0 bg-gray-500 bg-opacity-75" onclick="closeModal()"></div>
+          <div
+            class="inline-block align-bottom bg-white rounded-xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full">
             <div class="bg-gray-50 px-4 py-3 border-b border-gray-200 flex justify-between items-center">
-                <h3 class="text-lg leading-6 font-bold text-gray-900" id="modal-title">Tambah Data</h3>
-                <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600">✕</button>
+              <h3 class="text-lg leading-6 font-bold text-gray-900" id="modal-title">Tambah Data</h3>
+              <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600">✕</button>
             </div>
-            <form id="addForm" onsubmit="saveData(event)" class="max-h-[80vh] overflow-y-auto modal-scroll px-6 py-6 space-y-4">
-                <input type="hidden" id="form-type" value="cert">
-                <input type="hidden" id="form-nama-hidden">
-                
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Pilih Karyawan</label>
-                    <select id="form-sap-select" required onchange="updateHiddenName()" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white">
-                        <option value="">-- Pilih --</option>
-                    </select>
+            <form id="addForm" onsubmit="saveData(event)"
+              class="max-h-[80vh] overflow-y-auto modal-scroll px-6 py-6 space-y-4">
+              <input type="hidden" id="form-type" value="cert">
+              <div class="grid grid-cols-2 gap-4">
+                <div><label class="block text-sm font-medium text-gray-700 mb-1">SAP ID</label><input type="text"
+                    id="form-sap" required class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"></div>
+                <div><label class="block text-sm font-medium text-gray-700 mb-1">Nama Karyawan</label><input type="text"
+                    id="form-nama" required class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"></div>
+              </div>
+              <div class="grid grid-cols-2 gap-4">
+                <div><label class="block text-sm font-medium text-gray-700 mb-1">Item ID</label><input type="text"
+                    id="form-itemId" required class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"></div>
+                <div><label class="block text-sm font-medium text-gray-700 mb-1">Rencana Pelaksanaan</label><input
+                    type="text" id="form-periode" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
                 </div>
-                
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Item ID</label>
-                        <input type="text" id="form-itemId" required class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Rencana (Bulan Tahun)</label>
-                        <input type="text" id="form-periode" placeholder="Contoh: Jan 2026" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
-                    </div>
-                </div>
+              </div>
+              <div><label class="block text-sm font-medium text-gray-700 mb-1">Course Title</label><input type="text"
+                  id="form-judul" required class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"></div>
 
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Judul / Course Title</label>
-                    <input type="text" id="form-judul" required class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+              <div id="fields-cert">
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                  <div><label class="block text-sm font-medium text-gray-700 mb-1">Anggaran</label><input type="text"
+                      id="form-jumlah" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"></div>
+                  <div><label class="block text-sm font-medium text-gray-700 mb-1">Status</label><select
+                      id="form-status" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                      <option value="Tersedia">Tersedia</option>
+                      <option value="Tidak Tersedia">Tidak Tersedia</option>
+                    </select></div>
                 </div>
-
-                <div id="fields-cert">
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Jumlah Anggaran</label>
-                            <input type="text" id="form-jumlah" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
-                        </div>
-                        <div>
-                            <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                            <select id="form-status" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
-                                <option value="Tersedia">Tersedia</option>
-                                <option value="Tidak Tersedia">Tidak Tersedia</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-
-                <div id="fields-lat" class="hidden">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Instruktur</label>
-                        <input type="text" id="form-instruktur" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Mandatory</label>
-                        <input type="text" id="form-mandatory" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
-                    </div>
-                    <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Risiko</label>
-                        <input type="text" id="form-resiko" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
-                    </div>
-                </div>
-
-                <div class="pt-4 flex justify-end gap-3 border-t border-gray-200 mt-4">
-                    <button type="button" onclick="closeModal()" class="px-4 py-2 bg-white text-gray-700 rounded-lg border border-gray-300 text-sm">Batal</button>
-                    <button type="submit" id="btn-save" class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm">Simpan</button>
-                </div>
+                <div><label class="block text-sm font-medium text-gray-700 mb-1">Mandatory</label><input type="text"
+                    id="form-mandatory" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"></div>
+              </div>
+              <div id="fields-lat" class="hidden">
+                <div><label class="block text-sm font-medium text-gray-700 mb-1">Instruktur</label><input type="text"
+                    id="form-instruktur" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"></div>
+              </div>
+              <div><label class="block text-sm font-medium text-gray-700 mb-1">Resiko</label><input type="text"
+                  id="form-resiko" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm"></div>
+              <div class="pt-4 flex justify-end gap-3 border-t border-gray-200 mt-4">
+                <button type="button" onclick="closeModal()"
+                  class="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-lg text-sm">Batal</button>
+                <button type="submit" id="btn-save"
+                  class="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm">Simpan</button>
+              </div>
             </form>
+          </div>
         </div>
-    </div>
-  </div>
+      </div>
 
-<script>
-  let DATA_CERT = [];
-  let DATA_LAT = [];
-  let CURRENT_YEAR_GROUPS = {}; 
-  // Cache for filtered lists
-  let FILTERED_CERT = [];
-  let FILTERED_LAT = [];
+      <!-- REALIZATION DATA MODAL -->
+      <div id="realization-modal" class="fixed inset-0 z-[60] hidden">
+        <div class="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+          <div class="fixed inset-0 bg-gray-500 bg-opacity-75" onclick="closeRealizationModal()"></div>
+          <span class="hidden sm:inline-block sm:align-middle sm:h-screen">&#8203;</span>
+          <div
+            class="inline-block align-bottom bg-white rounded-xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-3xl sm:w-full">
+            <div class="bg-gray-50 px-4 py-3 border-b border-gray-200 flex justify-between items-center">
+              <h3 class="text-lg leading-6 font-bold text-gray-900" id="realization-modal-title">Tambah Data Pelaksanaan
+              </h3>
+              <button onclick="closeRealizationModal()" class="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+            <form id="realizationForm" onsubmit="saveRealizationData(event)"
+              class="max-h-[80vh] overflow-y-auto modal-scroll px-6 py-6 space-y-4">
+              <input type="hidden" id="real-form-id" value="">
+              <input type="hidden" id="real-form-mode" value="add">
 
-  window.onload = function() {
-    loadData();
-    // Tutup dropdown saat klik luar
-    document.addEventListener('click', function(e) {
-        const btn = document.querySelector('button[onclick="toggleAddDropdown(event)"]');
-        const menu = document.getElementById('add-dropdown-menu');
-        if (btn && menu && !btn.contains(e.target) && !menu.contains(e.target)) {
-            menu.classList.add('hidden');
+              <!-- Basic Info -->
+              <div class="border-b pb-4">
+                <h4 class="text-sm font-bold text-gray-700 mb-3">Informasi Dasar</h4>
+                <div class="grid grid-cols-2 gap-4">
+                  <div><label class="block text-sm font-medium text-gray-700 mb-1">SAP Event <span
+                        class="text-red-500">*</span></label>
+                    <input type="text" id="real-sapEvent" required
+                      class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                  </div>
+                  <div><label class="block text-sm font-medium text-gray-700 mb-1">Item ID</label>
+                    <input type="text" id="real-itemId"
+                      class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                  </div>
+                </div>
+                <div class="grid grid-cols-3 gap-4 mt-4">
+                  <div><label class="block text-sm font-medium text-gray-700 mb-1">Tanggal Mulai <span
+                        class="text-red-500">*</span></label>
+                    <input type="date" id="real-startDate" required onchange="autoFillYearMonth()"
+                      class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                  </div>
+                  <div><label class="block text-sm font-medium text-gray-700 mb-1">Tanggal Selesai <span
+                        class="text-red-500">*</span></label>
+                    <input type="date" id="real-endDate" required
+                      class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                  </div>
+                  <div><label class="block text-sm font-medium text-gray-700 mb-1">Room</label>
+                    <input type="text" id="real-room"
+                      class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                  </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4 mt-4">
+                  <div><label class="block text-sm font-medium text-gray-700 mb-1">Bulan</label>
+                    <select id="real-bulan" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                      <option value="">Pilih Bulan</option>
+                      <option value="Januari">Januari</option>
+                      <option value="Februari">Februari</option>
+                      <option value="Maret">Maret</option>
+                      <option value="April">April</option>
+                      <option value="Mei">Mei</option>
+                      <option value="Juni">Juni</option>
+                      <option value="Juli">Juli</option>
+                      <option value="Agustus">Agustus</option>
+                      <option value="September">September</option>
+                      <option value="Oktober">Oktober</option>
+                      <option value="November">November</option>
+                      <option value="Desember">Desember</option>
+                    </select>
+                  </div>
+                  <div><label class="block text-sm font-medium text-gray-700 mb-1">Tahun</label>
+                    <input type="text" id="real-tahun"
+                      class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                  </div>
+                </div>
+              </div>
+
+              <!-- Training Info -->
+              <div class="border-b pb-4">
+                <h4 class="text-sm font-bold text-gray-700 mb-3">Informasi Pelatihan</h4>
+                <div><label class="block text-sm font-medium text-gray-700 mb-1">Course Title <span
+                      class="text-red-500">*</span></label>
+                  <input type="text" id="real-courseTitle" required
+                    class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                </div>
+                <div class="grid grid-cols-2 gap-4 mt-4">
+                  <div><label class="block text-sm font-medium text-gray-700 mb-1">SAP Instruktur</label>
+                    <input type="text" id="real-sapInstruktur"
+                      class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                  </div>
+                  <div><label class="block text-sm font-medium text-gray-700 mb-1">Nama Instruktur</label>
+                    <input type="text" id="real-namaInstruktur"
+                      class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                  </div>
+                </div>
+              </div>
+
+              <!-- Participant Info -->
+              <div class="border-b pb-4">
+                <h4 class="text-sm font-bold text-gray-700 mb-3">Informasi Peserta</h4>
+                <div class="grid grid-cols-2 gap-4">
+                  <div><label class="block text-sm font-medium text-gray-700 mb-1">SAP Peserta <span
+                        class="text-red-500">*</span></label>
+                    <input type="text" id="real-sapPeserta" required
+                      class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                  </div>
+                  <div><label class="block text-sm font-medium text-gray-700 mb-1">Nama Peserta <span
+                        class="text-red-500">*</span></label>
+                    <input type="text" id="real-namaPeserta" required
+                      class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                  </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4 mt-4">
+                  <div><label class="block text-sm font-medium text-gray-700 mb-1">Departemen</label>
+                    <input type="text" id="real-departemen"
+                      class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                  </div>
+                  <div><label class="block text-sm font-medium text-gray-700 mb-1">Unit Kerja</label>
+                    <input type="text" id="real-unitKerja"
+                      class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                  </div>
+                </div>
+              </div>
+
+              <!-- Statistics -->
+              <div>
+                <h4 class="text-sm font-bold text-gray-700 mb-3">Statistik</h4>
+                <div class="grid grid-cols-3 gap-4">
+                  <div><label class="block text-sm font-medium text-gray-700 mb-1">Jumlah Hadir</label>
+                    <input type="number" id="real-jumlahHadir"
+                      class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                  </div>
+                  <div><label class="block text-sm font-medium text-gray-700 mb-1">Durasi (Jam)</label>
+                    <input type="number" id="real-durasi" step="0.1"
+                      class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                  </div>
+                  <div><label class="block text-sm font-medium text-gray-700 mb-1">Kehadiran (%)</label>
+                    <input type="number" id="real-kehadiran" step="0.1"
+                      class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                  </div>
+                </div>
+              </div>
+
+              <div class="pt-4 flex justify-end gap-3 border-t border-gray-200 mt-4">
+                <button type="button" onclick="closeRealizationModal()"
+                  class="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-lg text-sm">Batal</button>
+                <button type="submit" id="btn-save-realization"
+                  class="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 text-sm">Simpan</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <script>
+        // --- GLOBAL VARIABLES ---
+        let DATA_CERT = [], DATA_LAT = [], DATA_REAL = [];
+        let CURRENT_YEAR_GROUPS = {}, REALIZATION_GROUPS = {};
+        let FILTERED_CERT = [], FILTERED_LAT = [], FILTERED_REAL = [];
+        let ACTIVE_YEAR = "", ACTIVE_MONTH = "", ACTIVE_REAL_YEAR = "";
+
+        // Calendar Globals
+        let calendar;
+        let currentViewMode = 'list';
+
+        // Global Error Handler
+        window.onerror = function (msg, url, line, col, error) {
+          alert("Application Error: " + msg + "\nLine: " + line);
+          return false;
+        };
+
+        // Global Error Handler
+        window.onerror = function (msg, url, line, col, error) {
+          alert("Application Error (Line " + line + "): " + msg);
+          console.error("Global Error:", msg, error);
+          return false;
+        };
+
+        window.onload = function () {
+          loadData();
+          document.addEventListener('click', function (e) {
+            const btn = document.querySelector('button[onclick="toggleAddDropdown(event)"]');
+            const menu = document.getElementById('add-dropdown-menu');
+            if (btn && menu && !btn.contains(e.target) && !menu.contains(e.target)) {
+              menu.classList.add('hidden');
+            }
+          });
+        };
+
+        /* --- DATA FETCHING (PARALLEL) --- */
+        function loadData() {
+          console.log('🔵 START: Loading data in parallel...');
+          google.script.run.withSuccessHandler(onCertLoaded).withFailureHandler(onFailure).getData();
+          google.script.run.withSuccessHandler(onLatLoaded).withFailureHandler(onFailure).getLATData();
+          google.script.run.withSuccessHandler(onRealLoaded).withFailureHandler(onFailure).getRealizationData();
         }
-    });
-  };
-
-  function loadData() {
-    google.script.run.withSuccessHandler(onCertLoaded).withFailureHandler(onFailure).getData();
-  }
-
-  function onCertLoaded(data) {
-    DATA_CERT = data || [];
-    google.script.run.withSuccessHandler(onLatLoaded).withFailureHandler(onFailure).getLATData();
-  }
-
-  function onLatLoaded(data) {
-    DATA_LAT = data || [];
-    document.getElementById('loading-container').style.display = 'none';
-    
-    // Default show Dashboard
-    openSubPage('page-dashboard', 'Dashboard');
-    updateDashboardStats();
-  }
-
-  function onFailure(error) {
-    alert("Error Backend: " + error.message);
-  }
-
-  function updateDashboardStats() {
-    const uniqueSAP = new Set();
-    DATA_CERT.forEach(d => uniqueSAP.add(d.sap));
-    DATA_LAT.forEach(d => uniqueSAP.add(d.sap));
-
-    document.getElementById('dash-total-karyawan').innerText = uniqueSAP.size;
-    document.getElementById('dash-total-cert').innerText = DATA_CERT.length;
-    document.getElementById('dash-total-lat').innerText = DATA_LAT.length;
-  }
-
-  function openSubPage(pageId, pageTitle) {
-    document.querySelectorAll('.content-section').forEach(el => {
-        el.style.display = 'none';
-        el.classList.add('hidden');
-    });
-    
-    const target = document.getElementById(pageId);
-    if(target) {
-        target.style.display = 'block';
-        target.classList.remove('hidden');
-    }
-    
-    document.getElementById('page-title').innerText = pageTitle;
-    if (pageId === 'page-perencanaan') renderYearCards();
-  }
-
-  function renderYearCards() {
-    document.getElementById('view-planning-years').classList.remove('hidden');
-    document.getElementById('view-planning-list').classList.add('hidden');
-
-    const years = new Set();
-    [...DATA_CERT, ...DATA_LAT].forEach(item => {
-      if (item && item.periode) {
-        const match = item.periode.toString().match(/20\d{2}/);
-        if (match) years.add(match[0]);
-      }
-    });
-
-    const container = document.getElementById('years-grid');
-    container.innerHTML = '';
-
-    if (years.size === 0) {
-      container.innerHTML = '<div class="col-span-full py-12 text-center text-gray-400">Belum ada data tahun (20xx).</div>';
-      return;
-    }
-
-    Array.from(years).sort().reverse().forEach(year => {
-      const card = document.createElement('div');
-      card.className = "bg-white p-8 rounded-xl border border-gray-200 shadow-sm hover:shadow-lg cursor-pointer transition-all flex flex-col items-center justify-center gap-3";
-      card.onclick = () => openYearDetail(year);
-      card.innerHTML = `
-        <div class="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mb-2 text-2xl font-bold">📅</div>
-        <h3 class="text-xl font-bold text-gray-800">${year}</h3>
-        <span class="text-xs text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full">Lihat Data</span>
-      `;
-      container.appendChild(card);
-    });
-  }
-
-  function openYearDetail(year) {
-    document.getElementById('view-planning-years').classList.add('hidden');
-    document.getElementById('view-planning-list').classList.remove('hidden');
-    document.getElementById('selected-year-display').innerText = "Tahun " + year;
-    document.getElementById('emp-search-input').value = '';
-    document.getElementById('emp-filter-status').value = '';
-
-    // Filter Global Data -> Filtered Cache
-    const filterFunc = (item) => item.periode && item.periode.toString().includes(year);
-    FILTERED_CERT = DATA_CERT.filter(filterFunc);
-    FILTERED_LAT = DATA_LAT.filter(filterFunc);
-
-    renderEmployeeList();
-  }
-
-  function renderEmployeeList() {
-    const container = document.getElementById('employee-list-container');
-    container.innerHTML = '';
-    const searchQuery = document.getElementById('emp-search-input').value.toLowerCase();
-    const statusFilter = document.getElementById('emp-filter-status').value;
-
-    // Grouping
-    CURRENT_YEAR_GROUPS = {};
-    [...FILTERED_CERT, ...FILTERED_LAT].forEach(item => {
-        const safeSap = String(item.sap).trim(); // Key Kunci
-        if (!CURRENT_YEAR_GROUPS[safeSap]) {
-            CURRENT_YEAR_GROUPS[safeSap] = { name: item.nama, certs: [], lats: [] };
+        function onCertLoaded(data) {
+          console.log('✅ CERT Loaded:', (data || []).length);
+          DATA_CERT = data || [];
+          // updateDashboardStats(); // Called safely via check
         }
-        if (item.type === 'cert') CURRENT_YEAR_GROUPS[safeSap].certs.push(item);
-        else CURRENT_YEAR_GROUPS[safeSap].lats.push(item);
-    });
+        function onLatLoaded(data) {
+          console.log('✅ LAT Loaded:', (data || []).length);
+          DATA_LAT = data || [];
+          // updateDashboardStats();
+        }
+        function onRealLoaded(data) {
+          try {
+            console.log('✅ REALIZATION Loaded:', (data || []).length);
 
-    const saps = Object.keys(CURRENT_YEAR_GROUPS);
-    if (saps.length === 0) {
-        container.innerHTML = '<div class="p-8 text-center text-gray-400">Tidak ada data.</div>';
-        return;
-    }
+            // Force show Debug button
+            const debugDiv = document.getElementById('debug-status-pelaksanaan');
 
-    let hasData = false;
-    
-    // Sort by name
-    saps.sort((a,b) => CURRENT_YEAR_GROUPS[a].name.localeCompare(CURRENT_YEAR_GROUPS[b].name)).forEach((sap, index) => {
-        const g = CURRENT_YEAR_GROUPS[sap];
-        
-        // Search Filter
-        const txt = (g.name + " " + sap).toLowerCase();
-        if (!txt.includes(searchQuery)) return;
+            DATA_REAL = data || [];
 
-        // Status Filter
-        if (statusFilter !== "") {
-            const match = g.certs.some(c => c.statusAnggaran === statusFilter);
-            if (!match) return; 
+            const loadingContainer = document.getElementById('loading-container');
+            if (loadingContainer) loadingContainer.style.display = 'none';
+
+            // State Restoration
+            if (ACTIVE_YEAR) {
+              openSubPage('page-perencanaan', 'Perencanaan');
+              renderYearCards();
+              openYearDetail(ACTIVE_YEAR);
+            } else if (ACTIVE_REAL_YEAR) {
+              openSubPage('page-pelaksanaan', 'Pelaksanaan');
+              renderRealizationYears();
+              openRealizationDetail(ACTIVE_REAL_YEAR);
+            } else {
+              openSubPage('page-dashboard', 'Dashboard');
+              updateDashboardStats();
+            }
+          } catch (e) {
+            alert("Error in onRealLoaded: " + e.message);
+            console.error(e);
+          }
         }
 
-        hasData = true;
-        // Use Index as ID to be 100% safe
-        const uniqueID = `emp-${index}`; 
-        
-        const div = document.createElement('div');
-        div.className = "bg-white group border-b border-gray-100";
-        div.innerHTML = `
+        function runDiagnostic() {
+          alert("Sedang mengecek koneksi ke Sheet 'Pelaksanaan'...");
+          google.script.run.withSuccessHandler(alert).withFailureHandler(alert).debugSheetConnection();
+        }
+
+        function onFailure(error) {
+          console.error('❌ FATAL ERROR during data loading:');
+          console.error('Error object:', error);
+          console.error('Error message:', error.message);
+          console.error('Error stack:', error.stack);
+          alert("Error loading data: " + error.message + "\n\nCheck Console (F12) for details.");
+          document.getElementById('loading-container').style.display = 'none';
+        }
+
+        function updateDashboardStats() {
+          const uniqueSAP = new Set();
+          DATA_CERT.forEach(d => uniqueSAP.add(d.sap));
+          DATA_LAT.forEach(d => uniqueSAP.add(d.sap));
+          document.getElementById('dash-total-karyawan').innerText = uniqueSAP.size;
+          document.getElementById('dash-total-cert').innerText = DATA_CERT.length;
+          document.getElementById('dash-total-lat').innerText = DATA_LAT.length;
+        }
+
+        function openSubPage(pageId, pageTitle) {
+          console.log(`OpenSubPage Called: ${pageId}, Title: ${pageTitle}`); // Added logging
+          document.querySelectorAll('.content-section').forEach(el => { el.style.display = 'none'; el.classList.add('hidden'); });
+          const target = document.getElementById(pageId);
+          if (target) { target.style.display = 'block'; target.classList.remove('hidden'); }
+          else { console.error(`Target Page ID: ${pageId} not found!`); } // Added error logging
+
+          document.getElementById('page-title').innerText = pageTitle;
+
+          if (pageId === 'page-perencanaan') renderYearCards();
+          if (pageId === 'page-pelaksanaan') {
+            console.log("Triggering renderRealizationYears from openSubPage...");
+            renderRealizationYears();
+          }
+        }
+
+        // --- LOGIC PERENCANAAN ---
+        function renderYearCards() {
+          document.getElementById('view-planning-years').classList.remove('hidden');
+          document.getElementById('view-planning-list').classList.add('hidden');
+          const years = new Set();
+          [...DATA_CERT, ...DATA_LAT].forEach(item => { if (item.periode) { const m = item.periode.toString().match(/20\d{2}/); if (m) years.add(m[0]); } });
+          const container = document.getElementById('years-grid');
+          container.innerHTML = '';
+          if (years.size === 0) { container.innerHTML = '<div class="col-span-full py-12 text-center text-gray-400">Belum ada data tahun.</div>'; return; }
+          Array.from(years).sort().reverse().forEach(year => {
+            const card = document.createElement('div');
+            card.className = "bg-white p-8 rounded-xl border border-gray-200 shadow-sm hover:shadow-lg cursor-pointer transition-all flex flex-col items-center justify-center gap-3";
+            card.onclick = () => openYearDetail(year);
+            card.innerHTML = `<div class="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mb-2 text-2xl font-bold">📅</div><h3 class="text-xl font-bold text-gray-800">${year}</h3><span class="text-xs text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full">Lihat Data</span>`;
+            container.appendChild(card);
+          });
+        }
+        function openYearDetail(year) {
+          ACTIVE_YEAR = year;
+          ACTIVE_MONTH = "";
+
+          // Hide year view, show month view
+          document.getElementById('view-planning-years').classList.add('hidden');
+          document.getElementById('view-planning-months').classList.remove('hidden');
+          document.getElementById('selected-year-months').innerText = year;
+
+          // Filter data by year first
+          const filterFunc = (item) => item.periode && item.periode.toString().includes(year);
+          FILTERED_CERT = DATA_CERT.filter(filterFunc);
+          FILTERED_LAT = DATA_LAT.filter(filterFunc);
+
+          // Render month cards
+          renderMonthCards();
+        }
+
+        function renderMonthCards() {
+          const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+          const monthData = {};
+
+          // Count data per month
+          [...FILTERED_CERT, ...FILTERED_LAT].forEach(item => {
+            if (!item.periode) return;
+            const p = item.periode.toString(); // Expected: YYYY-MM-DD
+
+            // Handle YYYY-MM-DD format
+            if (p.length >= 7 && p.charAt(4) === '-') {
+              const mIndex = parseInt(p.substring(5, 7)); // '01' -> 1
+              if (!isNaN(mIndex) && mIndex >= 1 && mIndex <= 12) {
+                const mName = monthNames[mIndex - 1]; // 0-based index
+                monthData[mName] = (monthData[mName] || 0) + 1;
+              }
+            }
+            // Fallback for old/other format (e.g. "Jan 2024")
+            else {
+              monthNames.forEach(month => {
+                if (p.includes(month)) {
+                  monthData[month] = (monthData[month] || 0) + 1;
+                }
+              });
+            }
+          });
+
+          // Render month cards (HANYA yang ada datanya)
+          const container = document.getElementById('months-grid');
+          container.innerHTML = '';
+
+          // Filter: hanya render bulan yang punya data
+          monthNames.forEach(month => {
+            const count = monthData[month] || 0;
+
+            // Skip bulan yang kosong
+            if (count === 0) return;
+
+            const card = document.createElement('div');
+            card.className = 'month-card active';
+            card.onclick = () => openMonthDetail(month);
+            card.innerHTML = `
+          <h3>${month}</h3>
+          <p>${count} Data</p>
+        `;
+            container.appendChild(card);
+          });
+
+          // Tampilkan message jika tidak ada data sama sekali
+          if (container.children.length === 0) {
+            container.innerHTML = '<div class="col-span-full py-12 text-center text-gray-400">Tidak ada data untuk tahun ini.</div>';
+          }
+        }
+
+        function openMonthDetail(month) {
+          ACTIVE_MONTH = month;
+
+          // Hide month view, show list view
+          document.getElementById('view-planning-months').classList.add('hidden');
+          document.getElementById('view-planning-list').classList.remove('hidden');
+          document.getElementById('selected-year-display').innerText = `Tahun ${ACTIVE_YEAR} - ${month}`;
+          document.getElementById('emp-search-input').value = '';
+          document.getElementById('emp-filter-status').value = '';
+
+          // Month Name to Index Map for filtering
+          const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+
+          // Filter by month AND year
+          const filterFunc = (item) => {
+            if (!item.periode) return false;
+            const p = item.periode.toString();
+
+            // Check Year
+            if (!p.includes(ACTIVE_YEAR)) return false;
+
+            // Check Month (Standard YYYY-MM-DD or Legacy)
+            if (p.length >= 7 && p.charAt(4) === '-') {
+              const mIndex = parseInt(p.substring(5, 7));
+              if (!isNaN(mIndex)) {
+                return monthNames[mIndex - 1] === month;
+              }
+            }
+
+            // Fallback
+            return p.includes(month);
+          };
+
+          FILTERED_CERT = DATA_CERT.filter(filterFunc);
+          FILTERED_LAT = DATA_LAT.filter(filterFunc);
+
+          renderEmployeeList();
+        }
+        function backToYears() {
+          // If currently in list view, go back to months
+          if (!document.getElementById('view-planning-list').classList.contains('hidden')) {
+            document.getElementById('view-planning-list').classList.add('hidden');
+            document.getElementById('view-planning-months').classList.remove('hidden');
+            return;
+          }
+
+          // If currently in months view, go back to years
+          if (!document.getElementById('view-planning-months').classList.contains('hidden')) {
+            ACTIVE_YEAR = "";
+            ACTIVE_MONTH = "";
+            document.getElementById('view-planning-months').classList.add('hidden');
+            document.getElementById('view-planning-years').classList.remove('hidden');
+            renderYearCards();
+          }
+        }
+        function renderEmployeeList() {
+          const container = document.getElementById('employee-list-container');
+          container.innerHTML = '';
+          const searchQuery = document.getElementById('emp-search-input').value.toLowerCase();
+          const statusFilter = document.getElementById('emp-filter-status').value;
+          CURRENT_YEAR_GROUPS = {};
+          [...FILTERED_CERT, ...FILTERED_LAT].forEach(item => {
+            const safeSap = String(item.sap).trim();
+            if (!CURRENT_YEAR_GROUPS[safeSap]) { CURRENT_YEAR_GROUPS[safeSap] = { name: item.nama, certs: [], lats: [] }; }
+            if (item.type === 'cert') CURRENT_YEAR_GROUPS[safeSap].certs.push(item);
+            else CURRENT_YEAR_GROUPS[safeSap].lats.push(item);
+          });
+          const saps = Object.keys(CURRENT_YEAR_GROUPS);
+          if (saps.length === 0) { container.innerHTML = '<div class="p-8 text-center text-gray-400">Data tidak ditemukan.</div>'; return; }
+          let hasData = false;
+          saps.sort((a, b) => CURRENT_YEAR_GROUPS[a].name.localeCompare(CURRENT_YEAR_GROUPS[b].name)).forEach((sap, index) => {
+            const g = CURRENT_YEAR_GROUPS[sap];
+            const txt = (g.name + " " + sap).toLowerCase();
+            if (!txt.includes(searchQuery)) return;
+            if (statusFilter !== "") { const match = g.certs.some(c => c.statusAnggaran === statusFilter); if (!match) return; }
+            hasData = true;
+            const uniqueID = `emp-${index}`;
+            const div = document.createElement('div');
+            div.className = "bg-white group border-b border-gray-100";
+            div.innerHTML = `
             <div onclick="toggleAccordion('${uniqueID}')" class="grid grid-cols-12 px-6 py-4 items-center cursor-pointer hover:bg-indigo-50 transition-colors select-none">
                 <div class="col-span-1 text-gray-500 font-mono text-xs">${index + 1}</div>
                 <div class="col-span-2 text-gray-900 font-mono text-sm font-medium">${sap}</div>
@@ -375,175 +835,578 @@
                         ${g.lats.length > 0 ? `<span class="text-[10px] px-2 py-0.5 bg-emerald-50 text-emerald-600 rounded border border-emerald-100 font-semibold">${g.lats.length} LAT</span>` : ''}
                     </div>
                 </div>
-                <div class="col-span-1 text-center text-gray-400">
-                    <span id="icon-${uniqueID}">▼</span>
-                </div>
+                <div class="col-span-1 text-center text-gray-400"><span id="icon-${uniqueID}">▼</span></div>
             </div>
-
             <div id="content-${uniqueID}" class="accordion-content bg-gray-50 border-t border-gray-200 hidden">
-                <div class="p-6">
-                    
-                    <div class="flex items-center gap-2 mb-4">
-                        <span class="text-[10px] font-bold text-gray-400 uppercase mr-2">Show:</span>
-                        <button onclick="filterDetail(event, '${uniqueID}', 'all')" class="px-3 py-1 text-xs font-medium bg-indigo-600 text-white rounded-full">All</button>
-                        <button onclick="filterDetail(event, '${uniqueID}', 'cert')" class="px-3 py-1 text-xs font-medium bg-white text-gray-600 border border-gray-300 rounded-full">Cert</button>
-                        <button onclick="filterDetail(event, '${uniqueID}', 'lat')" class="px-3 py-1 text-xs font-medium bg-white text-gray-600 border border-gray-300 rounded-full">LAT</button>
-                    </div>
+                <div class="p-6">${renderDetailContent(uniqueID, g)}</div>
+            </div>`;
+            container.appendChild(div);
+          });
+          if (!hasData) container.innerHTML = '<div class="p-8 text-center text-gray-400">Data tidak ditemukan.</div>';
+        }
+        function renderDetailContent(uniqueID, g) {
+          return `<div class="flex items-center gap-2 mb-4">
+        <span class="text-[10px] font-bold text-gray-400 uppercase mr-2">Show:</span>
+        <button onclick="filterDetail(event, '${uniqueID}', 'all')" class="px-3 py-1 text-xs font-medium bg-indigo-600 text-white rounded-full">All</button>
+        <button onclick="filterDetail(event, '${uniqueID}', 'cert')" class="px-3 py-1 text-xs font-medium bg-white text-gray-600 border border-gray-300 rounded-full">Cert</button>
+        <button onclick="filterDetail(event, '${uniqueID}', 'lat')" class="px-3 py-1 text-xs font-medium bg-white text-gray-600 border border-gray-300 rounded-full">LAT</button>
+     </div>
+     <div class="space-y-6">
+        <div id="wrapper-${uniqueID}-cert" class="${g.certs.length === 0 ? 'hidden' : ''}">
+            ${g.certs.length > 0 ? `<div class="bg-white rounded-lg border border-blue-200 overflow-hidden shadow-sm"><div class="bg-blue-50 px-4 py-2 border-b border-blue-200 text-xs font-bold text-blue-700">SERTIFIKASI</div><div class="overflow-x-auto"><table class="w-full text-xs text-left whitespace-nowrap"><thead class="bg-gray-50 text-gray-500 font-semibold border-b"><tr><th class="px-4 py-3 w-10">NO</th><th class="px-4 py-3">NAMA</th><th class="px-4 py-3">SAP</th><th class="px-4 py-3">ITEM ID</th><th class="px-4 py-3">COURSE TITLE</th><th class="px-4 py-3">RENCANA</th><th class="px-4 py-3">ANGGARAN</th><th class="px-4 py-3">STATUS</th></tr></thead><tbody class="divide-y divide-gray-100">${g.certs.map((c, i) => `<tr class="hover:bg-gray-50"><td class="px-4 py-2 text-center text-gray-500">${i + 1}</td><td class="px-4 py-2 font-medium">${g.name}</td><td class="px-4 py-2 font-mono text-gray-500">${c.sap}</td><td class="px-4 py-2 font-mono text-indigo-600">${c.itemId}</td><td class="px-4 py-2 font-medium wrap-text whitespace-normal min-w-[200px]">${c.judul}</td><td class="px-4 py-2">${c.periode}</td><td class="px-4 py-2">${c.jumlah || '-'}</td><td class="px-4 py-2">${c.statusAnggaran}</td></tr>`).join('')}</tbody></table></div></div>` : ''}
+        </div>
+            ${g.lats.length > 0 ? `<div class="bg-white rounded-lg border border-emerald-200 overflow-hidden shadow-sm"><div class="bg-emerald-50 px-4 py-2 border-b border-emerald-200 text-xs font-bold text-emerald-700">LAT</div><div class="overflow-x-auto"><table class="w-full text-xs text-left whitespace-nowrap"><thead class="bg-gray-50 text-gray-500 font-semibold border-b"><tr><th class="px-4 py-3 w-10">NO</th><th class="px-4 py-3">NAMA</th><th class="px-4 py-3">SAP</th><th class="px-4 py-3">ITEM ID</th><th class="px-4 py-3">COURSE TITLE</th><th class="px-4 py-3">INSTRUKTUR</th></tr></thead><tbody class="divide-y divide-gray-100">${g.lats.map((l, i) => `<tr class="hover:bg-gray-50"><td class="px-4 py-2 text-center text-gray-500">${i + 1}</td><td class="px-4 py-2 font-medium">${g.name}</td><td class="px-4 py-2 font-mono text-gray-500">${l.sap}</td><td class="px-4 py-2 font-mono text-emerald-600">${l.itemId}</td><td class="px-4 py-2 font-medium wrap-text whitespace-normal min-w-[200px]">${l.judul}</td><td class="px-4 py-2">${l.instruktur}</td></tr>`).join('')}</tbody></table></div></div>` : ''}
+        </div>
+     </div>`;
+        }
 
-                    <div class="space-y-4">
-                        <div id="wrapper-${uniqueID}-cert" class="${g.certs.length === 0 ? 'hidden' : ''}">
-                            ${g.certs.length > 0 ? `
-                            <div class="bg-white rounded-lg border border-blue-200 overflow-hidden">
-                                <div class="bg-blue-50 px-4 py-2 border-b border-blue-200 text-xs font-bold text-blue-700">SERTIFIKASI</div>
-                                <table class="w-full text-xs text-left">
-                                    <thead class="bg-gray-50 text-gray-500 font-semibold border-b">
-                                        <tr><th class="px-4 py-2">ID</th><th class="px-4 py-2">Judul</th><th class="px-4 py-2">Plan</th><th class="px-4 py-2">Status</th></tr>
-                                    </thead>
-                                    <tbody class="divide-y divide-gray-100">
-                                        ${g.certs.map(c => `
-                                            <tr>
-                                                <td class="px-4 py-2 font-mono text-gray-500">${c.itemId}</td>
-                                                <td class="px-4 py-2 font-medium">${c.judul}</td>
-                                                <td class="px-4 py-2">${c.periode}</td>
-                                                <td class="px-4 py-2"><span class="px-2 py-0.5 rounded ${c.statusAnggaran === 'Tersedia' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">${c.statusAnggaran}</span></td>
-                                            </tr>
-                                        `).join('')}
-                                    </tbody>
-                                </table>
-                            </div>` : ''}
-                        </div>
 
-                        <div id="wrapper-${uniqueID}-lat" class="${g.lats.length === 0 ? 'hidden' : ''}">
-                            ${g.lats.length > 0 ? `
-                            <div class="bg-white rounded-lg border border-emerald-200 overflow-hidden">
-                                <div class="bg-emerald-50 px-4 py-2 border-b border-emerald-200 text-xs font-bold text-emerald-700">LAT</div>
-                                <table class="w-full text-xs text-left">
-                                    <thead class="bg-gray-50 text-gray-500 font-semibold border-b">
-                                        <tr><th class="px-4 py-2">ID</th><th class="px-4 py-2">Judul</th><th class="px-4 py-2">Instruktur</th><th class="px-4 py-2">Plan</th></tr>
-                                    </thead>
-                                    <tbody class="divide-y divide-gray-100">
-                                        ${g.lats.map(l => `
-                                            <tr>
-                                                <td class="px-4 py-2 font-mono text-gray-500">${l.itemId}</td>
-                                                <td class="px-4 py-2 font-medium">${l.judul}</td>
-                                                <td class="px-4 py-2">${l.instruktur}</td>
-                                                <td class="px-4 py-2">${l.periode}</td>
-                                            </tr>
-                                        `).join('')}
-                                    </tbody>
-                                </table>
-                            </div>` : ''}
-                        </div>
-                    </div>
+
+        // --- LOGIC PELAKSANAAN (NEW) ---
+        function renderRealizationYears() {
+          console.log('🏁 Starting renderRealizationYears()...');
+          console.log('📊 DATA_REAL:', DATA_REAL);
+          console.log('📊 DATA_REAL.length:', (DATA_REAL || []).length);
+
+          if (!DATA_REAL) {
+            console.error('❌ DATA_REAL is undefined!');
+            alert('ERROR: Data pelaksanaan tidak ter-load. Silakan refresh halaman.');
+            return;
+          }
+
+
+
+          const viewYears = document.getElementById('view-realization-years');
+          const viewList = document.getElementById('view-realization-list');
+
+          if (viewYears) viewYears.classList.remove('hidden');
+          if (viewList) viewList.classList.add('hidden');
+
+          const years = new Set();
+          DATA_REAL.forEach(item => {
+            var t = "";
+            if (item.tahun !== undefined && item.tahun !== null) {
+              t = String(item.tahun).trim();
+            }
+            years.add(t);
+          });
+
+          console.log('📅 Found Years:', Array.from(years));
+
+
+
+          const container = document.getElementById('years-grid-realization');
+          if (!container) {
+            console.error('❌ FATAL: Container #years-grid-realization NOT FOUND!');
+
+            alert('ERROR: Container untuk tahun tidak ditemukan di HTML!');
+            return;
+          }
+
+          container.innerHTML = '';
+
+          if (years.size === 0 && DATA_REAL.length === 0) {
+            container.innerHTML = "<div class='col-span-full text-center text-gray-400 py-12'>Tidak ada data pelaksanaan.</div>";
+            console.log('⚠️ No years and no data');
+            return;
+          }
+
+          // Force render simple cards
+          const validYears = Array.from(years).filter(y => y !== "");
+          const hasEmpty = years.has("");
+
+          let cardCount = 0;
+
+          // 1. Empty/All Data Card
+          if (hasEmpty || validYears.length === 0) {
+            const card = document.createElement('div');
+            card.className = "bg-white p-8 rounded-xl border border-emerald-200 shadow-sm cursor-pointer hover:shadow-lg transition-all";
+            card.innerHTML = `
+              <div class="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mb-2 text-2xl font-bold mx-auto">📊</div>
+              <h3 class="font-bold text-xl text-gray-800 text-center">Semua Data</h3>
+              <p class="text-xs text-emerald-600 text-center mt-2">Klik untuk lihat semua</p>
+            `;
+            card.onclick = () => {
+              console.log('🔘 Clicked "Semua Data" card');
+              openRealizationDetail("");
+            };
+            container.appendChild(card);
+            cardCount++;
+            console.log('✅ Added "Semua Data" card');
+          }
+
+          // 2. Year Cards
+          validYears.sort().reverse().forEach(year => {
+            const card = document.createElement('div');
+            card.className = "bg-white p-8 rounded-xl border border-emerald-200 shadow-sm cursor-pointer hover:shadow-lg transition-all";
+            card.innerHTML = `
+              <div class="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mb-2 text-2xl font-bold mx-auto">📅</div>
+              <h3 class="font-bold text-xl text-gray-800 text-center">${year}</h3>
+              <p class="text-xs text-emerald-600 text-center mt-2">Lihat Data</p>
+            `;
+            card.onclick = () => {
+              console.log('🔘 Clicked year card:', year);
+              openRealizationDetail(year);
+            };
+            container.appendChild(card);
+            cardCount++;
+            console.log('✅ Added year card:', year);
+          });
+
+          console.log(`✅ Rendered ${cardCount} cards total.`);
+
+          if (cardCount === 0) {
+            container.innerHTML = "<div class='col-span-full text-center text-red-600 py-12 font-bold'>⚠️ Tidak ada tahun ditemukan dalam data!</div>";
+            console.error('❌ No cards rendered!');
+          }
+        }
+
+
+
+        function openRealizationDetail(year) {
+          ACTIVE_REAL_YEAR = year;
+          document.getElementById('view-realization-years').classList.add('hidden');
+          document.getElementById('view-realization-list').classList.remove('hidden');
+
+          let title = "Tahun " + year;
+          if (year === "") title = "Data Pelaksanaan";
+          document.getElementById('selected-year-realization').innerText = title;
+
+          document.getElementById('real-search-input').value = '';
+
+          // FILTER: Ambil data tahun terpilih ATAU data yang tahunnya kosong (nebeng)
+          // Jika selected year kosong (kasus only empty data), ambil semua yang kosong.
+          if (year === "") {
+            FILTERED_REAL = DATA_REAL.filter(item => !item.tahun || String(item.tahun).trim() === "");
+          } else {
+            // Sertakan yang kosong agar "tetap di card yang sama"
+            FILTERED_REAL = DATA_REAL.filter(item => String(item.tahun) === String(year) || !item.tahun || String(item.tahun).trim() === "");
+          }
+
+          renderRealizationList();
+        }
+        function backToRealizationYears() {
+          ACTIVE_REAL_YEAR = "";
+          document.getElementById('view-realization-list').classList.add('hidden');
+          document.getElementById('view-realization-years').classList.remove('hidden');
+          renderRealizationYears();
+        }
+        function renderRealizationList() {
+          const container = document.getElementById('realization-list-container');
+          container.innerHTML = '';
+          const searchQuery = document.getElementById('real-search-input').value.toLowerCase();
+          REALIZATION_GROUPS = {};
+          FILTERED_REAL.forEach(item => {
+            const safeSap = String(item.sap).trim();
+            if (!REALIZATION_GROUPS[safeSap]) { REALIZATION_GROUPS[safeSap] = { name: item.nama, unit: item.unitKerja, dept: item.departemen, items: [] }; }
+            REALIZATION_GROUPS[safeSap].items.push(item);
+          });
+          const saps = Object.keys(REALIZATION_GROUPS);
+          if (saps.length === 0) { container.innerHTML = '<div class="p-8 text-center text-gray-400">Data tidak ditemukan.</div>'; return; }
+          let hasData = false;
+          saps.sort((a, b) => REALIZATION_GROUPS[a].name.localeCompare(REALIZATION_GROUPS[b].name)).forEach((sap, index) => {
+            const g = REALIZATION_GROUPS[sap];
+            const headerString = (g.name + " " + sap).toLowerCase();
+            if (!headerString.includes(searchQuery)) return; // Simple search header only for performance
+            hasData = true;
+            const uniqueID = `real-${index}`;
+            const div = document.createElement('div');
+            div.className = "bg-white group border-b border-gray-100";
+            div.innerHTML = `
+                <div onclick="toggleAccordion('${uniqueID}')" class="grid grid-cols-12 px-6 py-4 items-center cursor-pointer hover:bg-emerald-50 transition-colors select-none">
+                  <div class="col-span-1 text-gray-500 font-mono text-xs">${index + 1}</div>
+                  <div class="col-span-2 text-gray-900 font-mono text-sm font-medium">${sap}</div>
+                  <div class="col-span-8 text-gray-700 font-medium text-sm">
+                    ${g.name}
+                    <span class="text-xs text-gray-400 ml-2">(${g.unit || '-'})</span>
+                    <div class="mt-1"><span class="text-[10px] px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded border border-emerald-200 font-semibold">${g.items.length} Pelatihan</span></div>
+                  </div>
+                  <div class="col-span-1 text-center text-gray-400">▼</div>
                 </div>
-            </div>
-        `;
-        container.appendChild(div);
-    });
+                <div id="content-${uniqueID}" class="accordion-content bg-gray-50 border-t border-gray-200 hidden">
+                  <div class="p-6">
+                    <div class="bg-white rounded-lg border border-emerald-200 overflow-hidden shadow-sm">
+                      <div class="overflow-x-auto">
+                        <table class="w-full text-xs text-left whitespace-nowrap">
+                          <thead class="bg-gray-50 text-gray-500 font-semibold border-b">
+                            <tr>
+                              <th class="px-4 py-3">NO</th>
+                              <th class="px-4 py-3">SAP Event</th>
+                              <th class="px-4 py-3">Mulai</th>
+                              <th class="px-4 py-3">Selesai</th>
+                              <th class="px-4 py-3">Bulan</th>
+                              <th class="px-4 py-3">Tahun</th>
+                              <th class="px-4 py-3">Item ID</th>
+                              <th class="px-4 py-3">SAP Instruktur</th>
+                              <th class="px-4 py-3">Nama Instruktur</th>
+                              <th class="px-4 py-3">Judul Pelatihan</th>
+                              <th class="px-4 py-3">SAP Peserta</th>
+                              <th class="px-4 py-3">Nama Peserta</th>
+                              <th class="px-4 py-3">Ruangan</th>
+                              <th class="px-4 py-3">Pesona</th>
+                              <th class="px-4 py-3">Kel</th>
+                              <th class="px-4 py-3">Departemen</th>
+                              <th class="px-4 py-3">Unit Kerja</th>
+                              <th class="px-4 py-3">Jumlah Hadir</th>
+                              <th class="px-4 py-3">Count Pelatihan</th>
+                              <th class="px-4 py-3">Durasi</th>
+                              <th class="px-4 py-3">Kehadiran</th>
+                              <th class="px-4 py-3">Durasi Peserta</th>
+                              <th class="px-4 py-3">Durasi Instruktur</th>
+                              <th class="px-4 py-3 text-center">Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody class="divide-y divide-gray-100">
+                            ${g.items.map(item => `
+                                       <tr class="hover:bg-gray-50">
+                                           <td class="px-4 py-2 text-gray-500">${item.id || '-'}</td>
+                                           <td class="px-4 py-2 font-mono text-gray-600">${item.sapEvent || '-'}</td>
+                                           <td class="px-4 py-2">${item.sapStart ? new Date(item.sapStart).toLocaleDateString() : '-'}</td>
+                                           <td class="px-4 py-2">${item.end ? new Date(item.end).toLocaleDateString() : '-'}</td>
+                                           <td class="px-4 py-2">${item.bulan || '-'}</td>
+                                           <td class="px-4 py-2 font-semibold">${item.tahun || '-'}</td>
+                                           <td class="px-4 py-2 font-mono text-emerald-600">${item.itemId || '-'}</td>
+                                           <td class="px-4 py-2 font-mono text-gray-500">${item.sapInstruktur || '-'}</td>
+                                           <td class="px-4 py-2">${item.namaInstruktur || '-'}</td>
+                                           <td class="px-4 py-2 font-bold text-gray-800 whitespace-normal min-w-[200px]">${item.courseTitle || '-'}</td>
+                                           <td class="px-4 py-2 font-mono text-indigo-600">${item.sapPeserta || item.sap || '-'}</td>
+                                           <td class="px-4 py-2 font-medium">${item.namaPeserta || item.nama || '-'}</td>
+                                           <td class="px-4 py-2">${item.room || '-'}</td>
+                                           <td class="px-4 py-2 text-center">${item.pesona || '-'}</td>
+                                           <td class="px-4 py-2 text-gray-500 whitespace-normal min-w-[150px]">${item.kel || '-'}</td>
+                                           <td class="px-4 py-2">${item.departemen || '-'}</td>
+                                           <td class="px-4 py-2">${item.unitKerja || '-'}</td>
+                                           <td class="px-4 py-2">${item.jumlahHadir || '-'}</td>
+                                           <td class="px-4 py-2">${item.countPelatihan || '-'}</td>
+                                           <td class="px-4 py-2">${item.durasi || '-'}</td>
+                                           <td class="px-4 py-2">${item.kehadiran || '-'}</td>
+                                           <td class="px-4 py-2">${item.durasiPeserta || '-'}</td>
+                                           <td class="px-4 py-2">${item.durasiInstruktur || '-'}</td>
+                                       </tr>`).join('')}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                </div>`;
+            container.appendChild(div);
+          });
+          if (!hasData) container.innerHTML = '<div class="p-8 text-center text-gray-400">Tidak ada data ditemukan.</div>';
+        }
 
-    if(!hasData) container.innerHTML = '<div class="p-8 text-center text-gray-400">Data tidak ditemukan.</div>';
-  }
+        // --- HELPERS ---
+        function toggleAccordion(uid) {
+          const el = document.getElementById('content-' + uid);
+          if (el.classList.contains('hidden')) { el.classList.remove('hidden'); el.classList.add('show'); }
+          else { el.classList.add('hidden'); el.classList.remove('show'); }
+        }
+        function filterDetail(e, uid, type) {
+          e.stopPropagation();
+          const cert = document.getElementById(`wrapper-${uid}-cert`);
+          const lat = document.getElementById(`wrapper-${uid}-lat`);
+          if (type === 'all') { cert.classList.remove('hidden-force'); lat.classList.remove('hidden-force'); }
+          else if (type === 'cert') { cert.classList.remove('hidden-force'); lat.classList.add('hidden-force'); }
+          else { cert.classList.add('hidden-force'); lat.classList.remove('hidden-force'); }
+        }
+        function toggleAddDropdown(e) { e.stopPropagation(); document.getElementById('add-dropdown-menu').classList.toggle('hidden'); }
+        function openModal(type) {
+          document.getElementById('add-dropdown-menu').classList.add('hidden'); document.getElementById('addForm').reset();
+          if (ACTIVE_YEAR) { document.getElementById('form-periode').value = "Jan " + ACTIVE_YEAR; }
+          const modal = document.getElementById('data-modal'); modal.classList.remove('hidden'); document.getElementById('form-type').value = type;
+          document.getElementById('modal-title').innerText = type === 'cert' ? 'Tambah Sertifikasi' : 'Tambah LAT';
+          if (type === 'cert') { document.getElementById('fields-cert').classList.remove('hidden'); document.getElementById('fields-lat').classList.add('hidden'); }
+          else { document.getElementById('fields-cert').classList.add('hidden'); document.getElementById('fields-lat').classList.remove('hidden'); }
+        }
+        function closeModal() { document.getElementById('data-modal').classList.add('hidden'); document.getElementById('addForm').reset(); }
+        function saveData(event) {
+          event.preventDefault(); const btn = document.getElementById('btn-save'); btn.innerText = "Menyimpan..."; btn.disabled = true;
+          const formData = {
+            sap: document.getElementById('form-sap').value, nama: document.getElementById('form-nama').value,
+            itemId: document.getElementById('form-itemId').value, judul: document.getElementById('form-judul').value,
+            periode: document.getElementById('form-periode').value, mandatory: document.getElementById('form-mandatory').value,
+            resiko: document.getElementById('form-resiko').value,
+          };
+          const type = document.getElementById('form-type').value;
+          if (type === 'cert') {
+            formData.jumlah = document.getElementById('form-jumlah').value; formData.statusAnggaran = document.getElementById('form-status').value;
+            google.script.run.withSuccessHandler(() => { alert('Sukses!'); closeModal(); loadData(); btn.disabled = false; btn.innerText = 'Simpan'; }).addData(formData);
+          } else {
+            formData.instruktur = document.getElementById('form-instruktur').value;
+            google.script.run.withSuccessHandler(() => { alert('Sukses!'); closeModal(); loadData(); btn.disabled = false; btn.innerText = 'Simpan'; }).addLATData(formData);
+          }
+        }
 
-  function toggleAccordion(uid) {
-    const el = document.getElementById('content-' + uid);
-    if (el.classList.contains('hidden')) {
-        el.classList.remove('hidden');
-        el.classList.add('show');
-    } else {
-        el.classList.add('hidden');
-        el.classList.remove('show');
-    }
-  }
+        // --- CALENDAR LOGIC ---
 
-  function filterDetail(e, uid, type) {
-    e.stopPropagation();
-    const cert = document.getElementById(`wrapper-${uid}-cert`);
-    const lat = document.getElementById(`wrapper-${uid}-lat`);
-    
-    if (type === 'all') { cert.classList.remove('hidden-force'); lat.classList.remove('hidden-force'); }
-    else if (type === 'cert') { cert.classList.remove('hidden-force'); lat.classList.add('hidden-force'); }
-    else { cert.classList.add('hidden-force'); lat.classList.remove('hidden-force'); }
-  }
+        function switchViewMode(mode) {
+          currentViewMode = mode;
+          const btnList = document.getElementById('btn-mode-list');
+          const btnCal = document.getElementById('btn-mode-calendar');
+          const containerList = document.getElementById('container-planning-list');
+          const containerCal = document.getElementById('view-planning-calendar');
 
-  function toggleAddDropdown(e) {
-    if(e) e.stopPropagation();
-    document.getElementById('add-dropdown-menu').classList.toggle('hidden');
-  }
+          if (mode === 'calendar') {
+            containerList.classList.add('hidden');
+            containerCal.classList.remove('hidden');
 
-  function populateNameDropdown() {
-    const select = document.getElementById('form-sap-select');
-    select.innerHTML = '<option value="">-- Pilih Karyawan --</option>';
-    const employees = new Map();
-    [...DATA_CERT, ...DATA_LAT].forEach(d => { if(d.sap && d.nama) employees.set(d.sap, d.nama); });
-    Array.from(employees.entries()).sort((a, b) => a[1].localeCompare(b[1])).forEach(([sap, nama]) => {
-        const option = document.createElement('option');
-        option.value = sap;
-        option.text = `${nama} (${sap})`;
-        option.setAttribute('data-nama', nama);
-        select.appendChild(option);
-    });
-  }
+            // Update Button Styles
+            btnList.classList.remove('bg-white', 'text-indigo-600', 'shadow-sm', 'font-semibold');
+            btnList.classList.add('text-gray-500', 'font-medium');
 
-  function updateHiddenName() {
-    const select = document.getElementById('form-sap-select');
-    const nama = select.options[select.selectedIndex].getAttribute('data-nama');
-    document.getElementById('form-nama-hidden').value = nama || "";
-  }
+            btnCal.classList.add('bg-white', 'text-indigo-600', 'shadow-sm', 'font-semibold');
+            btnCal.classList.remove('text-gray-500', 'font-medium');
 
-  function openModal(type) {
-    document.getElementById('add-dropdown-menu').classList.add('hidden');
-    populateNameDropdown();
-    const modal = document.getElementById('data-modal');
-    modal.classList.remove('hidden');
-    document.getElementById('form-type').value = type;
-    document.getElementById('modal-title').innerText = type === 'cert' ? 'Tambah Sertifikasi' : 'Tambah LAT';
-    
-    if(type === 'cert') {
-        document.getElementById('fields-cert').classList.remove('hidden');
-        document.getElementById('fields-lat').classList.add('hidden');
-    } else {
-        document.getElementById('fields-cert').classList.add('hidden');
-        document.getElementById('fields-lat').classList.remove('hidden');
-    }
-  }
+            // Init Calendar if first time
+            if (!calendar) {
+              initCalendar();
+            } else {
+              calendar.render(); // Re-render to fix layout issues
+            }
+            updateCalendarEvents();
 
-  function closeModal() {
-    document.getElementById('data-modal').classList.add('hidden');
-    document.getElementById('addForm').reset();
-  }
+          } else {
+            containerCal.classList.add('hidden');
+            containerList.classList.remove('hidden');
 
-  function saveData(event) {
-    event.preventDefault();
-    const btn = document.getElementById('btn-save');
-    btn.innerText = "Menyimpan...";
-    btn.disabled = true;
+            // Update Button Styles
+            btnCal.classList.remove('bg-white', 'text-indigo-600', 'shadow-sm', 'font-semibold');
+            btnCal.classList.add('text-gray-500', 'font-medium');
 
-    const formData = {
-        sap: document.getElementById('form-sap-select').value,
-        nama: document.getElementById('form-nama-hidden').value,
-        itemId: document.getElementById('form-itemId').value,
-        judul: document.getElementById('form-judul').value,
-        periode: document.getElementById('form-periode').value,
-        mandatory: document.getElementById('form-mandatory').value,
-        resiko: document.getElementById('form-resiko').value,
-    };
+            btnList.classList.add('bg-white', 'text-indigo-600', 'shadow-sm', 'font-semibold');
+            btnList.classList.remove('text-gray-500', 'font-medium');
+          }
+        }
 
-    const type = document.getElementById('form-type').value;
-    if (type === 'cert') {
-        formData.jumlah = document.getElementById('form-jumlah').value;
-        formData.statusAnggaran = document.getElementById('form-status').value;
-        google.script.run.withSuccessHandler(() => { alert('Sukses!'); closeModal(); loadData(); btn.disabled = false; btn.innerText = 'Simpan'; }).addData(formData);
-    } else {
-        formData.instruktur = document.getElementById('form-instruktur').value;
-        google.script.run.withSuccessHandler(() => { alert('Sukses!'); closeModal(); loadData(); btn.disabled = false; btn.innerText = 'Simpan'; }).addLATData(formData);
-    }
-  }
+        function initCalendar() {
+          const calendarEl = document.getElementById('calendar');
+          calendar = new FullCalendar.Calendar(calendarEl, {
+            initialView: 'dayGridMonth',
+            headerToolbar: {
+              left: 'prev,next today',
+              center: 'title',
+              right: 'dayGridMonth,listMonth'
+            },
+            locale: 'id',
+            height: 'auto',
+            events: [],
+            eventClick: function (info) {
+              alert('Event: ' + info.event.title);
+              // TODO: Open detail modal
+            },
+            dateClick: function (info) {
+              // Buka modal tambah dengan tanggal terisi
+              openModal('cert');
+              document.getElementById('form-periode').value = info.dateStr; // Set format YYYY-MM-DD
+              // Info: User perlu input tanggal manual jika ingin format lain, tapi YYYY-MM-DD standar HTML date input
+            }
+          });
+          calendar.render();
+        }
 
-  function backToYears() {
-    document.getElementById('view-planning-list').classList.add('hidden');
-    document.getElementById('view-planning-years').classList.remove('hidden');
-  }
-</script>
+        function updateCalendarEvents() {
+          if (!calendar) return;
+          const events = [];
 
+          // Process DATA_CERT
+          (window.DATA_CERT || []).forEach(item => {
+            if (item.periode) {
+              events.push({
+                title: item.judul || item.nama || 'Sertifikasi',
+                start: item.periode,
+                backgroundColor: '#4f46e5', // Indigo
+                borderColor: '#4338ca',
+                extendedProps: { type: 'cert', ...item }
+              });
+            }
+          });
+
+          // Process DATA_LAT
+          (window.DATA_LAT || []).forEach(item => {
+            if (item.periode) {
+              events.push({
+                title: item.judul || item.nama || 'LAT',
+                start: item.periode,
+                backgroundColor: '#10b981', // Emerald
+                borderColor: '#059669',
+                extendedProps: { type: 'lat', ...item }
+              });
+            }
+          });
+
+          calendar.removeAllEvents();
+          calendar.addEventSource(events);
+
+          // Update Realization Calendar if exists
+          if (typeof calendarRealization !== 'undefined' && calendarRealization) {
+            const realEvents = [];
+            (window.DATA_REAL || []).forEach(item => {
+              if (item.sapStart) {
+                realEvents.push({
+                  title: item.courseTitle || item.namaPeserta || "Pelaksanaan",
+                  start: item.sapStart,
+                  end: item.end, // Optional
+                  backgroundColor: '#059669', // Emerald 600
+                  borderColor: '#047857',
+                  extendedProps: { type: 'realization', ...item }
+                });
+              }
+            });
+            calendarRealization.removeAllEvents();
+            calendarRealization.addEventSource(realEvents);
+          }
+        }
+
+        function switchRealizationViewMode(mode) {
+          console.log('switchRealizationViewMode called with mode:', mode);
+          // Note: Calendar view not fully implemented, always use list view for now
+          // Just ensure the list view is visible
+          const containerList = document.getElementById('container-realization-list');
+          const containerCal = document.getElementById('view-realization-calendar');
+
+          if (containerList) containerList.classList.remove('hidden');
+          if (containerCal) containerCal.classList.add('hidden');
+
+          // Re-render to ensure data appears
+          renderRealizationYears();
+        }
+
+        // --- REALIZATION CRUD FUNCTIONS ---
+        function openRealizationModal(mode, data) {
+          const modal = document.getElementById('realization-modal');
+          const form = document.getElementById('realizationForm');
+          const title = document.getElementById('realization-modal-title');
+
+          form.reset();
+          document.getElementById('real-form-mode').value = mode;
+
+          if (mode === 'add') {
+            title.textContent = 'Tambah Data Pelaksanaan';
+            document.getElementById('real-form-id').value = '';
+          } else {
+            title.textContent = 'Edit Data Pelaksanaan';
+            // Populate form with existing data
+            document.getElementById('real-form-id').value = data.id || '';
+            document.getElementById('real-sapEvent').value = data.sapEvent || '';
+            document.getElementById('real-itemId').value = data.itemId || '';
+            document.getElementById('real-startDate').value = data.sapStart ? data.sapStart.split('T')[0] : '';
+            document.getElementById('real-endDate').value = data.end ? data.end.split('T')[0] : '';
+            document.getElementById('real-room').value = data.room || '';
+            document.getElementById('real-bulan').value = data.bulan || '';
+            document.getElementById('real-tahun').value = data.tahun || '';
+            document.getElementById('real-courseTitle').value = data.courseTitle || '';
+            document.getElementById('real-sapInstruktur').value = data.sapInstruktur || '';
+            document.getElementById('real-namaInstruktur').value = data.namaInstruktur || '';
+            document.getElementById('real-sapPeserta').value = data.sapPeserta || '';
+            document.getElementById('real-namaPeserta').value = data.namaPeserta || '';
+            document.getElementById('real-departemen').value = data.departemen || '';
+            document.getElementById('real-unitKerja').value = data.unitKerja || '';
+            document.getElementById('real-jumlahHadir').value = data.jumlahHadir || '';
+            document.getElementById('real-durasi').value = data.durasi || '';
+            document.getElementById('real-kehadiran').value = data.kehadiran || '';
+          }
+
+          modal.classList.remove('hidden');
+        }
+
+        function closeRealizationModal() {
+          document.getElementById('realization-modal').classList.add('hidden');
+        }
+
+        function autoFillYearMonth() {
+          const startDate = document.getElementById('real-startDate').value;
+          if (startDate) {
+            const date = new Date(startDate);
+            const year = date.getFullYear();
+            const month = date.getMonth();
+            const monthNames = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+              'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+
+            document.getElementById('real-tahun').value = year;
+            document.getElementById('real-bulan').value = monthNames[month];
+          }
+        }
+
+        function saveRealizationData(event) {
+          event.preventDefault();
+
+          const mode = document.getElementById('real-form-mode').value;
+          const btn = document.getElementById('btn-save-realization');
+          btn.disabled = true;
+          btn.textContent = 'Menyimpan...';
+
+          const formData = {
+            id: document.getElementById('real-form-id').value,
+            sapEvent: document.getElementById('real-sapEvent').value,
+            itemId: document.getElementById('real-itemId').value,
+            sapStart: document.getElementById('real-startDate').value,
+            end: document.getElementById('real-endDate').value,
+            room: document.getElementById('real-room').value,
+            bulan: document.getElementById('real-bulan').value,
+            tahun: document.getElementById('real-tahun').value,
+            courseTitle: document.getElementById('real-courseTitle').value,
+            sapInstruktur: document.getElementById('real-sapInstruktur').value,
+            namaInstruktur: document.getElementById('real-namaInstruktur').value,
+            sapPeserta: document.getElementById('real-sapPeserta').value,
+            namaPeserta: document.getElementById('real-namaPeserta').value,
+            departemen: document.getElementById('real-departemen').value,
+            unitKerja: document.getElementById('real-unitKerja').value,
+            jumlahHadir: document.getElementById('real-jumlahHadir').value,
+            durasi: document.getElementById('real-durasi').value,
+            kehadiran: document.getElementById('real-kehadiran').value
+          };
+
+          const successHandler = function (response) {
+            btn.disabled = false;
+            btn.textContent = 'Simpan';
+
+            if (response.success) {
+              alert(mode === 'add' ? 'Data berhasil ditambahkan!' : 'Data berhasil diupdate!');
+              DATA_REAL = response.data || [];
+              closeRealizationModal();
+              renderRealizationList();
+            } else {
+              alert('Error: ' + (response.error || 'Gagal menyimpan data'));
+            }
+          };
+
+          const failureHandler = function (error) {
+            btn.disabled = false;
+            btn.textContent = 'Simpan';
+            alert('Error: ' + error.message);
+          };
+
+          if (mode === 'add') {
+            google.script.run.withSuccessHandler(successHandler).withFailureHandler(failureHandler).addRealizationData(formData);
+          } else {
+            google.script.run.withSuccessHandler(successHandler).withFailureHandler(failureHandler).updateRealizationData(formData);
+          }
+        }
+
+        function editRealizationData(item) {
+          openRealizationModal('edit', item);
+        }
+
+        function deleteRealizationData(id) {
+          if (!confirm('Yakin ingin menghapus data ini?')) return;
+
+          google.script.run
+            .withSuccessHandler(function (response) {
+              if (response.success) {
+                alert('Data berhasil dihapus!');
+                DATA_REAL = response.data || [];
+                renderRealizationList();
+              } else {
+                alert('Error: ' + (response.error || 'Gagal menghapus data'));
+              }
+            })
+            .withFailureHandler(function (error) {
+              alert('Error: ' + error.message);
+            })
+            .deleteRealizationData(id);
+        }
+
+
+      </script>
 </body>
+
 </html>
