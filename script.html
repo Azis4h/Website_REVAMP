@@ -1,0 +1,3537 @@
+<script>
+    let dialogCallback = null;
+    let CURRENT_USER_EMAIL = "";
+    let CURRENT_USER_ROLE = "";
+    let CURRENT_USER_NAMA = "";
+
+    function checkSessionAndInit() {
+        const token = localStorage.getItem('sessionToken');
+        if (!token) {
+            showLoginScreen();
+            return;
+        }
+
+        // Show loading screen
+        if (loadingContainer) {
+            loadingContainer.classList.remove('hidden');
+            const title = document.querySelector('.loading-title');
+            if (title) title.innerText = "Menghubungkan Sesi...";
+        }
+
+        google.script.run.withSuccessHandler(function (response) {
+            if (response && response.isValid) {
+                CURRENT_USER_EMAIL = response.email;
+                CURRENT_USER_ROLE = response.role;
+                CURRENT_USER_NAMA = response.nama;
+                
+                updateProfileUI(response.email, response.nama, response.role);
+                applyRoleRestrictions(response.role);
+                
+                // Show app, hide login
+                document.getElementById('login-container').classList.add('hidden');
+                document.getElementById('app-container').classList.remove('hidden');
+                
+                loadData();
+                openSubPage('page-dashboard', 'Dashboard');
+            } else {
+                localStorage.removeItem('sessionToken');
+                showLoginScreen();
+            }
+        }).withFailureHandler(function (err) {
+            console.error("Session verification failed:", err);
+            localStorage.removeItem('sessionToken');
+            showLoginScreen();
+        }).validateSession(token);
+    }
+
+    function showLoginScreen() {
+        if (loadingContainer) loadingContainer.classList.add('hidden');
+        document.getElementById('app-container').classList.add('hidden');
+        document.getElementById('login-container').classList.remove('hidden');
+        
+        // Reset error message
+        const errAlert = document.getElementById('login-error-alert');
+        if (errAlert) errAlert.classList.add('hidden');
+        
+        // Reset fields
+        const emailInput = document.getElementById('login-email');
+        const passInput = document.getElementById('login-password');
+        if (emailInput) emailInput.value = '';
+        if (passInput) passInput.value = '';
+        
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    function handleLoginSubmit(event) {
+        event.preventDefault();
+        
+        const email = document.getElementById('login-email').value;
+        const password = document.getElementById('login-password').value;
+        const submitBtn = document.getElementById('login-submit-btn');
+        const errAlert = document.getElementById('login-error-alert');
+        const errText = document.getElementById('login-error-text');
+        
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = `<span>Memproses...</span> <div class="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>`;
+        }
+        if (errAlert) errAlert.classList.add('hidden');
+        
+        google.script.run.withSuccessHandler(function (response) {
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = `<span>Masuk ke Dashboard</span> <i data-lucide="arrow-right" class="w-4 h-4"></i>`;
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            }
+            
+            if (response && response.success) {
+                localStorage.setItem('sessionToken', response.token);
+                
+                CURRENT_USER_EMAIL = response.user.email;
+                CURRENT_USER_ROLE = response.user.role;
+                CURRENT_USER_NAMA = response.user.nama;
+                
+                updateProfileUI(response.user.email, response.user.nama, response.user.role);
+                applyRoleRestrictions(response.user.role);
+                
+                // Hide login, show app
+                document.getElementById('login-container').classList.add('hidden');
+                document.getElementById('app-container').classList.remove('hidden');
+                
+                loadData();
+                openSubPage('page-dashboard', 'Dashboard');
+            } else {
+                if (errAlert && errText) {
+                    errText.innerText = response.error || "Login gagal. Coba lagi.";
+                    errAlert.classList.remove('hidden');
+                }
+            }
+        }).withFailureHandler(function (err) {
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = `<span>Masuk ke Dashboard</span> <i data-lucide="arrow-right" class="w-4 h-4"></i>`;
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            }
+            if (errAlert && errText) {
+                errText.innerText = "Error: " + (err.message || err);
+                errAlert.classList.remove('hidden');
+            }
+        }).loginUser(email, password);
+    }
+
+    function handleLogout() {
+        showConfirm("Apakah Anda yakin ingin keluar?", () => {
+            const token = localStorage.getItem('sessionToken');
+            
+            if (loadingContainer) {
+                loadingContainer.classList.remove('hidden');
+                const title = document.querySelector('.loading-title');
+                if (title) title.innerText = "Mengeluarkan Sesi...";
+            }
+            
+            google.script.run.withSuccessHandler(function () {
+                localStorage.removeItem('sessionToken');
+                showLoginScreen();
+            }).withFailureHandler(function () {
+                localStorage.removeItem('sessionToken');
+                showLoginScreen();
+            }).logoutUser(token);
+        });
+    }
+
+    function togglePasswordVisibility() {
+        const passInput = document.getElementById('login-password');
+        const icon = document.getElementById('password-toggle-icon');
+        if (passInput && icon) {
+            if (passInput.type === 'password') {
+                passInput.type = 'text';
+                icon.setAttribute('data-lucide', 'eye-off');
+            } else {
+                passInput.type = 'password';
+                icon.setAttribute('data-lucide', 'eye');
+            }
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+    }
+
+    function applyRoleRestrictions(role) {
+        const isAdmin = (role === 'Super Admin' || role === 'Admin' || role === 'Admin LND');
+        document.querySelectorAll('.role-admin-only').forEach(el => {
+            if (isAdmin) {
+                el.classList.remove('hidden');
+            } else {
+                el.classList.add('hidden');
+            }
+        });
+    }
+
+    function showCustomDialog(options) {
+        const overlay = document.getElementById('custom-dialog');
+        const iconBg = document.getElementById('dialog-icon-bg');
+        const icon = document.getElementById('dialog-icon');
+        const title = document.getElementById('dialog-title');
+        const message = document.getElementById('dialog-message');
+        const singleActions = document.getElementById('dialog-actions-single');
+        const confirmActions = document.getElementById('dialog-actions-confirm');
+        const confirmBtn = document.getElementById('dialog-confirm-btn');
+        const inputContainer = document.getElementById('dialog-input-container');
+        const inputEl = document.getElementById('dialog-input');
+
+        // Reset
+        title.innerText = options.title || 'Pemberitahuan';
+        message.innerText = options.message || '';
+        icon.setAttribute('data-lucide', options.icon || 'check');
+        singleActions.classList.add('hidden');
+        confirmActions.classList.add('hidden');
+        inputContainer.classList.add('hidden');
+
+        if (options.showInput) {
+            inputContainer.classList.remove('hidden');
+            inputEl.value = options.inputValue || '';
+        }
+
+        if (options.type === 'confirm') {
+            confirmActions.classList.remove('hidden');
+
+            let iconBgClass = 'bg-indigo-50 text-indigo-600';
+            if (options.confirmColor === 'red') iconBgClass = 'bg-red-50 text-red-600';
+            if (options.confirmColor === 'emerald') iconBgClass = 'bg-emerald-50 text-emerald-600';
+            iconBg.className = 'dialog-icon-wrapper ' + iconBgClass;
+            confirmBtn.innerText = options.confirmText || 'Hapus';
+            let btnColorClass = 'bg-indigo-600 hover:bg-indigo-700'; // Default
+            if (options.confirmColor === 'red') btnColorClass = 'bg-red-600 hover:bg-red-700';
+            if (options.confirmColor === 'emerald') btnColorClass = 'bg-emerald-600 hover:bg-emerald-700';
+
+            confirmBtn.className = `flex-1 py-3 text-white rounded-xl font-semibold transition-colors shadow-md ${btnColorClass}`;
+
+            dialogCallback = options.callback;
+            confirmBtn.onclick = () => {
+                overlay.classList.remove('show');
+                if (dialogCallback) {
+                    const result = options.showInput ? inputEl.value : true;
+                    dialogCallback(result);
+                }
+            };
+        } else {
+            singleActions.classList.remove('hidden');
+            iconBg.className = `dialog-icon-wrapper ${options.iconColor === 'red' ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-600'}`;
+        }
+
+        overlay.classList.add('show');
+        lucide.createIcons();
+    }
+
+    function closeCustomDialog(result = false) {
+        document.getElementById('custom-dialog').classList.remove('show');
+        if (dialogCallback) dialogCallback(result);
+        dialogCallback = null;
+    }
+
+    function notifySuccess(msg) {
+        showCustomDialog({ title: 'Berhasil', message: msg, icon: 'check-circle', iconColor: 'emerald' });
+    }
+
+    function notifyError(msg) {
+        showCustomDialog({ title: 'Kesalahan', message: msg, icon: 'alert-circle', iconColor: 'red' });
+    }
+
+    function askDeletion(msg, callback) {
+        showCustomDialog({ type: 'confirm', title: 'Hapus Data', message: msg, icon: 'trash-2', confirmText: 'Hapus', confirmColor: 'red', callback: callback });
+    }
+
+    function showConfirm(options, callback) {
+        const config = typeof options === 'string' ? { message: options } : options;
+        showCustomDialog({
+            type: 'confirm',
+            title: config.title || 'Konfirmasi',
+            message: config.message || '',
+            icon: config.icon || 'help-circle',
+            confirmText: config.confirmText || 'Ya, Lanjutkan',
+            confirmColor: config.confirmColor || 'indigo',
+            callback: callback
+        });
+    }
+    // --- GLOBAL VARIABLES ---
+    let DATA_CERT = [], DATA_LAT = [], DATA_REAL = [], DATA_L1 = [], DATA_L2 = [], DATA_L3 = [], DATA_VENDOR = [], DATA_KARYAWAN = [];
+    let CURRENT_YEAR_GROUPS = {}, REALIZATION_GROUPS = {};
+    let FILTERED_CERT = [], FILTERED_LAT = [], FILTERED_REAL = [], FILTERED_L1 = [], FILTERED_L2 = [], FILTERED_L3 = [];
+    let ACTIVE_YEAR = "", ACTIVE_MONTH = "", ACTIVE_REAL_YEAR = "";
+    let REALIZATION_VIEW_MODE = "peserta";
+    let ACTIVE_EVALUASI_YEAR = "";
+    let REAL_MAP = {};
+
+    function normalizeId(id) {
+        if (id === null || id === undefined) return '';
+        let sid = String(id).trim();
+        if (sid.endsWith('.0')) sid = sid.substring(0, sid.length - 2);
+        return sid;
+    }
+
+    // --- UTILITIES ---
+    function debounce(func, wait) {
+        let timeout;
+        return function (...args) {
+            const context = this;
+            clearTimeout(timeout);
+            timeout = setTimeout(() => func.apply(context, args), wait);
+        };
+    }
+
+    const debouncedRenderVendorTable = debounce(() => renderVendorTable(), 300);
+    const debouncedRenderKaryawanTable = debounce(() => renderKaryawanTable(), 300);
+    const debouncedRenderEmployeeList = debounce(() => renderEmployeeList(), 300);
+    const debouncedRenderRealizationList = debounce(() => renderRealizationList(), 300);
+    const debouncedFilterL1Data = debounce((val) => filterL1Data(val), 300);
+    const debouncedFilterL2Data = debounce((val) => filterL2Data(val), 300);
+    const debouncedFilterL3Data = debounce((val) => filterL3Data(val), 300);
+
+    let IS_REAL_LOADED = false;
+
+    // Calendar Globals
+    let calendar;
+    let currentViewMode = 'list';
+    // Global Loading Reference
+    let loadingContainer;
+
+    // Global Error Handler
+    window.onerror = function (msg, url, line, col, error) {
+        notifyError("Application Error: " + msg + "\nLine: " + line);
+        return false;
+    };
+
+    window.onload = function () {
+        // Init Theme
+        if (localStorage.getItem('theme') === 'dark') {
+            document.documentElement.classList.add('dark');
+            const icon = document.getElementById('dark-mode-icon');
+            if (icon) icon.setAttribute('data-lucide', 'sun');
+        }
+
+        loadingContainer = document.getElementById('loading-container');
+
+        // Check Session and Initialize Dashboard
+        checkSessionAndInit();
+
+        if (typeof lucide !== 'undefined') {
+            lucide.createIcons();
+        }
+
+        document.addEventListener('click', function (e) {
+            const btn = document.querySelector('button[onclick="toggleAddDropdown(event)"]');
+            const menu = document.getElementById('add-dropdown-menu');
+            if (btn && menu && !btn.contains(e.target) && !menu.contains(e.target)) {
+                menu.classList.add('hidden');
+            }
+        });
+    };
+
+    function toggleDarkMode() {
+        const isDark = document.documentElement.classList.toggle('dark');
+        localStorage.setItem('theme', isDark ? 'dark' : 'light');
+        const icon = document.getElementById('dark-mode-icon');
+        if (icon) {
+            icon.setAttribute('data-lucide', isDark ? 'sun' : 'moon');
+            lucide.createIcons();
+        }
+    }
+
+    function updateProfileUI(email) {
+        if (!email || email === "Admin Dashboard") return;
+
+        const nameEl = document.getElementById('user-profile-name');
+        const roleEl = document.getElementById('user-profile-role');
+        const initialEl = document.getElementById('user-profile-initial');
+
+        if (nameEl) nameEl.innerText = email.split('@')[0].toUpperCase();
+        if (roleEl) roleEl.innerText = email;
+        if (initialEl) initialEl.innerText = email.charAt(0).toUpperCase();
+    }
+
+    function onFailure(error) {
+        console.error('❌ Data load failed:', error);
+
+        // Hide spinner
+        if (loadingContainer) {
+            loadingContainer.classList.add('hidden');
+        }
+        stopLoadingTextRotation();
+
+        showCustomDialog({
+            title: 'Kesalahan Koneksi',
+            message: 'Gagal memuat data karena gangguan jaringan (HTTP 0). Silakan coba lagi.',
+            icon: 'wifi-off',
+            type: 'confirm',
+            confirmText: 'Coba Lagi',
+            confirmColor: 'indigo',
+            callback: (confirmed) => {
+                if (confirmed) {
+                    loadData();
+                }
+            }
+        });
+    }
+
+    /* --- DATA FETCHING (PARALLEL) --- */
+    // Counter: panggil updateDashboardStats hanya setelah semua 6 data selesai
+    let _dashLoadCount = 0;
+    let _loadingTimeout;
+
+    function _tryUpdateDashboard() {
+        _dashLoadCount++;
+        console.log(`📊 Data loaded: ${_dashLoadCount}/8`);
+
+        // Update stats incrementally as data arrives
+        updateDashboardStats();
+
+        if (_dashLoadCount >= 8) {
+            _finishLoading();
+        }
+    }
+
+    function _finishLoading() {
+        if (_loadingTimeout) clearTimeout(_loadingTimeout);
+        console.log("✅ FINISHING LOAD: Hiding spinner and updating stats...");
+
+        if (loadingContainer) {
+            loadingContainer.classList.add('hidden');
+        }
+
+        stopLoadingTextRotation();
+
+        updateDashboardStats();
+
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    function loadData() {
+        _dashLoadCount = 0;
+        console.log('🔵 START: Loading data in parallel...');
+
+        if (loadingContainer) {
+            loadingContainer.classList.remove('hidden');
+        }
+
+        startLoadingTextRotation();
+
+        // Fail-safe timeout: Force show dashboard after 30 seconds if some requests hang (large dataset)
+        _loadingTimeout = setTimeout(() => {
+            if (_dashLoadCount < 8) {
+                console.warn("⚠️ LOAD TIMEOUT: Some data requests are taking too long. Forcing dashboard view.");
+                _finishLoading();
+            }
+        }, 30000);
+
+        const token = localStorage.getItem('sessionToken');
+        // Staggered requests to prevent HTTP 0 / Throttling
+        const delay = 150; // ms delay between each call
+        setTimeout(() => google.script.run.withSuccessHandler(onCertLoaded).withFailureHandler(onFailure).getData(token), 0);
+        setTimeout(() => google.script.run.withSuccessHandler(onLatLoaded).withFailureHandler(onFailure).getLATData(token), delay);
+        setTimeout(() => google.script.run.withSuccessHandler(onRealLoaded).withFailureHandler(onFailure).getRealizationData(token), delay * 2);
+        setTimeout(() => google.script.run.withSuccessHandler(onL1Loaded).withFailureHandler(onFailure).getEvaluasiL1Data(token), delay * 3);
+        setTimeout(() => google.script.run.withSuccessHandler(onL2Loaded).withFailureHandler(onFailure).getEvaluasiL2Data(token), delay * 4);
+        setTimeout(() => google.script.run.withSuccessHandler(onL3Loaded).withFailureHandler(onFailure).getEvaluasiL3Data(token), delay * 5);
+        setTimeout(() => google.script.run.withSuccessHandler(onVendorLoaded).withFailureHandler(onFailure).getVendorData(token), delay * 6);
+        setTimeout(() => google.script.run.withSuccessHandler(onKaryawanLoaded).withFailureHandler(onFailure).getKaryawanData(token), delay * 7);
+    }
+
+    let loadingTextInterval;
+    function startLoadingTextRotation() {
+        const subtext = document.getElementById('loading-subtext');
+        if (!subtext) return;
+
+        const messages = [
+            "Mohon tunggu sebentar...",
+            "Mengambil data peserta (Dataset Besar)...",
+            "Mengolah ribuan baris data...",
+            "Hampir selesai, sedang menyusun dashboard..."
+        ];
+        let idx = 0;
+
+        if (loadingTextInterval) clearInterval(loadingTextInterval);
+
+        loadingTextInterval = setInterval(() => {
+            idx = (idx + 1) % messages.length;
+            subtext.style.opacity = 0;
+            setTimeout(() => {
+                subtext.innerText = messages[idx];
+                subtext.style.opacity = 1;
+            }, 500);
+        }, 4000);
+    }
+
+    function stopLoadingTextRotation() {
+        if (loadingTextInterval) {
+            clearInterval(loadingTextInterval);
+            loadingTextInterval = null;
+        }
+    }
+
+    function onCertLoaded(data) {
+        console.log('✅ CERT Loaded:', (data || []).length);
+        DATA_CERT = data || [];
+        if (!document.getElementById('page-perencanaan').classList.contains('hidden')) {
+            renderYearCards();
+        }
+        _tryUpdateDashboard();
+    }
+    function onLatLoaded(data) {
+        console.log('✅ LAT Loaded:', (data || []).length);
+        DATA_LAT = data || [];
+        if (!document.getElementById('page-perencanaan').classList.contains('hidden')) {
+            renderYearCards();
+        }
+        _tryUpdateDashboard();
+    }
+    function onL1Loaded(data) {
+        console.log('✅ L1 Loaded:', (data || []).length);
+        DATA_L1 = data || [];
+        if (IS_REAL_LOADED) enrichL1Data();
+        _tryUpdateDashboard();
+    }
+    function onL2Loaded(data) {
+        console.log('✅ L2 Loaded:', (data || []).length);
+        DATA_L2 = data || [];
+        if (IS_REAL_LOADED) enrichL2Data();
+        _tryUpdateDashboard();
+    }
+    function onL3Loaded(data) {
+        console.log('✅ L3 Loaded:', (data || []).length);
+        DATA_L3 = data || [];
+        if (IS_REAL_LOADED) enrichL3Data();
+        _tryUpdateDashboard();
+    }
+    function onVendorLoaded(data) {
+        console.log('✅ VENDOR Loaded:', (data || []).length);
+        DATA_VENDOR = data || [];
+        _tryUpdateDashboard();
+        if (!document.getElementById('page-vendor').classList.contains('hidden')) {
+            renderVendorTable();
+        }
+    }
+
+    function onKaryawanLoaded(data) {
+        console.log('✅ KARYAWAN Loaded:', (data || []).length);
+        DATA_KARYAWAN = data || [];
+        _tryUpdateDashboard();
+        if (!document.getElementById('page-karyawan').classList.contains('hidden')) {
+            renderKaryawanTable();
+        }
+    }
+
+    function indexRealizationData() {
+        REAL_MAP = {};
+        (DATA_REAL || []).forEach(r => {
+            const nid = normalizeId(r.id);
+            if (nid) REAL_MAP[nid] = r;
+        });
+    }
+
+    function enrichL1Data() {
+        if (!DATA_L1 || DATA_L1.length === 0) return;
+        if (Object.keys(REAL_MAP).length === 0) indexRealizationData();
+
+        DATA_L1.forEach(l1 => {
+            const nid = normalizeId(l1.pelaksanaanId);
+            const real = REAL_MAP[nid];
+
+            if (real) {
+                l1.tahun = real.tahun;
+                l1.itemId = real.itemId;
+            } else {
+                const pStr = String(l1.pelaksanaanId);
+                const yearMatch = pStr.match(/20\d{2}/);
+                if (yearMatch) l1.tahun = parseInt(yearMatch[0]);
+                else l1.tahun = l1.tahun || "Lainnya";
+                l1.itemId = l1.itemId || "-";
+            }
+        });
+    }
+
+    function enrichL2Data() {
+        if (!DATA_L2 || DATA_L2.length === 0) return;
+        if (Object.keys(REAL_MAP).length === 0) indexRealizationData();
+
+        DATA_L2.forEach(l2 => {
+            const nid = normalizeId(l2.pelaksanaanId);
+            const real = REAL_MAP[nid];
+
+            if (real) {
+                l2.tahun = real.tahun;
+                l2.itemId = real.itemId;
+            } else {
+                const pStr = String(l2.pelaksanaanId);
+                const yearMatch = pStr.match(/20\d{2}/);
+                if (yearMatch) l2.tahun = parseInt(yearMatch[0]);
+                else l2.tahun = l2.tahun || "Lainnya";
+                l2.itemId = l2.itemId || "-";
+            }
+        });
+    }
+
+    function enrichL3Data() {
+        if (!DATA_L3 || DATA_L3.length === 0) return;
+        if (Object.keys(REAL_MAP).length === 0) indexRealizationData();
+
+        DATA_L3.forEach(l3 => {
+            const nid = normalizeId(l3.pelaksanaanId);
+            const real = REAL_MAP[nid];
+
+            if (real) {
+                l3.tahun = real.tahun;
+                l3.itemId = real.itemId;
+            } else {
+                const pStr = String(l3.pelaksanaanId);
+                const yearMatch = pStr.match(/20\d{2}/);
+
+                if (yearMatch) {
+                    l3.tahun = parseInt(yearMatch[0]);
+                } else if (l3.tanggalEval) {
+                    const d = new Date(l3.tanggalEval);
+                    if (!isNaN(d.getTime())) l3.tahun = d.getFullYear();
+                }
+                l3.tahun = l3.tahun || "Lainnya";
+                l3.itemId = l3.itemId || "-";
+            }
+        });
+    }
+    function onRealLoaded(data) {
+        console.log('✅ REALIZATION Loaded:', (data || []).length);
+        DATA_REAL = data || [];
+
+        indexRealizationData();
+        IS_REAL_LOADED = true;
+
+        if (DATA_L1.length > 0) enrichL1Data();
+        if (DATA_L2.length > 0) enrichL2Data();
+        if (DATA_L3.length > 0) enrichL3Data();
+
+        // If user is currently on Pelaksanaan page, re-render it
+        if (!document.getElementById('page-pelaksanaan').classList.contains('hidden')) {
+            renderRealizationYears();
+        }
+
+        _tryUpdateDashboard();
+    }
+
+    function onFailure(error) {
+        console.error('❌ DATA LOAD FAILED:', error);
+        if (loadingContainer) {
+            loadingContainer.classList.add('hidden');
+        }
+        notifyError('Gagal memuat data: ' + (error.message || error));
+
+        // Tetap coba jalankan dashboard jika ada data yang berhasil
+        _tryUpdateDashboard();
+    }
+
+    function runHeaderDebug() {
+        const token = localStorage.getItem('sessionToken');
+        google.script.run.withSuccessHandler(alert).debugHeaders(token);
+    }
+
+    function debugFrontendData() {
+        const log = [];
+        log.push("📊 **DIAGNOSA FRONTEND (Browser Memory)**");
+        log.push(`DATA_L1: ${Array.isArray(DATA_L1) ? DATA_L1.length : 'undefined'} item`);
+        log.push(`DATA_L2: ${Array.isArray(DATA_L2) ? DATA_L2.length : 'undefined'} item`);
+        log.push(`DATA_L3: ${Array.isArray(DATA_L3) ? DATA_L3.length : 'undefined'} item`);
+        log.push(`DATA_REAL: ${Array.isArray(DATA_REAL) ? DATA_REAL.length : 'undefined'} item`);
+        log.push(`ACTIVE_EVALUASI_YEAR: "${ACTIVE_EVALUASI_YEAR}" (Type: ${typeof ACTIVE_EVALUASI_YEAR})`);
+
+        if (DATA_L1 && DATA_L1.length > 0) {
+            const s = DATA_L1[0];
+            log.push("");
+            log.push("**Sample L1[0]:**");
+            log.push(`- ID: ${s.id}`);
+            log.push(`- PelaksanaanId: "${s.pelaksanaanId}"`);
+            log.push(`- Tahun (Enriched): ${s.tahun} (Type: ${typeof s.tahun})`);
+            log.push(`- Judul: ${s.judulPelatihan}`);
+        }
+
+        alert(log.join('\n'));
+    }
+
+
+
+    function handleVendorAction(rowIndex, status) {
+        const actionText = status === 'Disetujui' ? 'menyetujui' : 'menolak';
+        const confirmColor = status === 'Disetujui' ? 'emerald' : 'red';
+
+        showConfirm(`Apakah Anda yakin ingin ${actionText} pengajuan vendor ini?`, () => {
+            if (loadingContainer) loadingContainer.classList.remove('hidden');
+            const token = localStorage.getItem('sessionToken');
+            google.script.run
+                .withSuccessHandler((res) => {
+                    if (loadingContainer) loadingContainer.classList.add('hidden');
+                    if (res.success) {
+                        DATA_VENDOR = res.data;
+                        renderVendorTable();
+                        notifySuccess(`Berhasil ${status === 'Disetujui' ? 'menyetujui' : 'menolak'} pengajuan vendor.`);
+                    } else {
+                        notifyError("Gagal update status: " + res.error);
+                    }
+                })
+                .withFailureHandler(onFailure)
+                .updateVendorStatus(token, rowIndex, status);
+        });
+    }
+
+    function updateDashboardStats() {
+        // Calculate totals
+        const totalPelaksanaan = DATA_REAL.length;
+        const totalCert = DATA_CERT.length;
+        const totalLat = DATA_LAT.length;
+
+        document.getElementById('dash-total-pelaksanaan').innerText = totalPelaksanaan.toLocaleString('id-ID');
+        document.getElementById('dash-total-cert').innerText = totalCert.toLocaleString('id-ID');
+        document.getElementById('dash-total-lat').innerText = totalLat.toLocaleString('id-ID');
+
+        // Bottom small cards
+        document.getElementById('dash-bot-cert').innerText = totalCert.toLocaleString('id-ID');
+        document.getElementById('dash-bot-real').innerText = totalPelaksanaan.toLocaleString('id-ID');
+        document.getElementById('dash-bot-lat').innerText = totalLat.toLocaleString('id-ID');
+
+        // --- EVALUASI SUMMARY ---
+        const l1Count = (DATA_L1 || []).length;
+        const l2Count = (DATA_L2 || []).length;
+        const l3Count = (DATA_L3 || []).length;
+        const totalEval = l1Count + l2Count + l3Count;
+
+        document.getElementById('dash-total-evaluasi').innerText = totalEval.toLocaleString('id-ID');
+        document.getElementById('dash-l1-total').innerText = l1Count;
+        document.getElementById('dash-l2-total').innerText = l2Count;
+        document.getElementById('dash-l3-total').innerText = l3Count;
+        document.getElementById('dash-bot-eval').innerText = totalEval.toLocaleString('id-ID');
+
+        // Per-tahun breakdown
+        const byYear = {};
+        const addToYear = (arr, level) => {
+            (arr || []).forEach(item => {
+                const yr = String(item.tahun || item.pelaksanaanId || '').match(/20\d{2}/);
+                const key = yr ? yr[0] : 'Lainnya';
+                if (!byYear[key]) byYear[key] = { L1: 0, L2: 0, L3: 0 };
+                byYear[key][level]++;
+            });
+        };
+        addToYear(DATA_L1, 'L1');
+        addToYear(DATA_L2, 'L2');
+        addToYear(DATA_L3, 'L3');
+
+        const container = document.getElementById('dash-evaluasi-year-breakdown');
+        const years = Object.keys(byYear).sort();
+
+        if (years.length === 0) {
+            container.innerHTML = '<span class="italic text-gray-300 col-span-full text-center py-10">Belum ada data evaluasi</span>';
+        } else {
+            container.innerHTML = years.map(yr => {
+                const d = byYear[yr];
+                const total = (d.L1 || 0) + (d.L2 || 0) + (d.L3 || 0);
+
+                // Max for bar height (normalized)
+                const maxVal = Math.max(d.L1, d.L2, d.L3, 1);
+                const h1 = (d.L1 / maxVal) * 80;
+                const h2 = (d.L2 / maxVal) * 80;
+                const h3 = (d.L3 / maxVal) * 80;
+
+                return `<div class="bg-white border border-gray-50 rounded-[32px] p-8 shadow-sm hover:shadow-indigo-100/20 transition-all duration-300">
+            <p class="text-center text-[11px] font-bold text-gray-300 mb-2 uppercase tracking-[0.2em]">${yr}</p>
+            <p class="text-center text-4xl font-extrabold text-[#1E1B4B] mb-8 tracking-tighter">${total.toLocaleString('id-ID')}</p>
+            
+            <div class="space-y-3 mb-10">
+              <div class="flex justify-between items-center text-[10px] font-bold">
+                <span class="text-gray-300">L1</span>
+                <span class="text-[#6366F1] font-extrabold">${(d.L1 || 0).toLocaleString('id-ID')}</span>
+              </div>
+              <div class="flex justify-between items-center text-[10px] font-bold">
+                <span class="text-gray-300">L2</span>
+                <span class="text-[#10B981] font-extrabold">${(d.L2 || 0).toLocaleString('id-ID')}</span>
+              </div>
+              <div class="flex justify-between items-center text-[10px] font-bold">
+                <span class="text-gray-300">L3</span>
+                <span class="text-[#F97316] font-extrabold">${(d.L3 || 0).toLocaleString('id-ID')}</span>
+              </div>
+            </div>
+
+            <!-- Mini Bar Chart -->
+            <div class="flex items-end justify-center gap-4 h-24 border-t border-gray-50 pt-4">
+                <div class="w-4 bg-[#6366F1] rounded-t-md transition-all duration-500" style="height: ${h1}px" title="L1: ${d.L1}"></div>
+                <div class="w-4 bg-[#10B981] rounded-t-md transition-all duration-500" style="height: ${h2}px" title="L2: ${d.L2}"></div>
+                <div class="w-4 bg-[#F97316] rounded-t-md transition-all duration-500" style="height: ${h3}px" title="L3: ${d.L3}"></div>
+            </div>
+          </div>`;
+            }).join('');
+        }
+        lucide.createIcons();
+    }
+
+    function openSubPage(pageId, pageTitle) {
+        console.log(`OpenSubPage Called: ${pageId}, Title: ${pageTitle}`);
+
+        // Hide all sections
+        document.querySelectorAll('.content-section').forEach(el => {
+            el.classList.add('hidden');
+        });
+
+        // Show target section
+        const target = document.getElementById(pageId);
+        if (target) {
+            target.classList.remove('hidden');
+        } else {
+            console.error(`Target Page ID: ${pageId} not found!`);
+        }
+
+        // Update Global Title
+        document.getElementById('page-title').innerText = pageTitle;
+
+        // --- Update Sidebar Active State ---
+        document.querySelectorAll('.nav-link').forEach(link => {
+            // Reset to default
+            link.classList.remove('bg-indigo-50/50', 'text-[#6366F1]', 'font-bold');
+            link.classList.add('text-gray-500', 'font-medium');
+            link.querySelector('.active-indicator')?.classList.add('hidden');
+
+            // If this is the active link
+            if (link.id === `nav-${pageId}`) {
+                link.classList.remove('text-gray-500', 'font-medium');
+                link.classList.add('bg-indigo-50/50', 'text-[#6366F1]', 'font-bold');
+                link.querySelector('.active-indicator')?.classList.remove('hidden');
+            }
+        });
+
+        if (pageId === 'page-perencanaan') renderYearCards();
+        if (pageId === 'page-pelaksanaan') {
+            console.log("Triggering renderRealizationYears from openSubPage...");
+            renderRealizationYears();
+        }
+        if (pageId === 'page-evaluasi') {
+            setTimeout(() => {
+                enrichL1Data();
+                renderEvaluasiYears();
+            }, 50);
+        }
+        if (pageId === 'page-vendor') {
+            renderVendorTable();
+        }
+        if (pageId === 'page-karyawan') {
+            renderKaryawanTable();
+        }
+        if (pageId === 'page-analisis') {
+            setTimeout(renderAnalisis, 100);
+        }
+        if (pageId === 'page-laporan') {
+            setTimeout(renderLaporan, 100);
+        }
+        lucide.createIcons();
+    }
+
+    // --- LOGIC PERENCANAAN ---
+    function renderYearCards() {
+        document.getElementById('view-planning-years').classList.remove('hidden');
+        document.getElementById('view-planning-months').classList.add('hidden');
+        document.getElementById('view-planning-list').classList.add('hidden');
+
+        const years = new Set();
+        const yearCounts = {};
+
+        [...DATA_CERT, ...DATA_LAT].forEach(item => {
+            if (item.periode) {
+                const m = item.periode.toString().match(/20\d{2}/);
+                if (m) {
+                    const year = m[0];
+                    years.add(year);
+                    yearCounts[year] = (yearCounts[year] || 0) + 1;
+                }
+            }
+        });
+
+        const container = document.getElementById('years-grid');
+        container.innerHTML = '';
+
+        if (years.size === 0) {
+            container.innerHTML = '<div class="col-span-full py-12 text-center text-gray-400">Belum ada data tahun.</div>';
+            return;
+        }
+
+        Array.from(years).sort().reverse().forEach(year => {
+            const count = yearCounts[year] || 0;
+            const card = document.createElement('div');
+            card.className = "year-card-premium group";
+            card.onclick = () => openYearDetail(year);
+            card.innerHTML = `
+                <div class="flex flex-col items-center text-center">
+                    <div class="w-20 h-20 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-[28px] flex items-center justify-center mb-6 group-hover:scale-110 group-hover:rotate-3 transition-all duration-500">
+                        <i data-lucide="calendar" class="w-10 h-10"></i>
+                    </div>
+                    <h3 class="font-black text-4xl year-card-title mb-1">${year}</h3>
+                    <p class="text-[10px] font-bold year-card-subtitle uppercase tracking-widest mb-6">Tahun Perencanaan</p>
+                    
+                    <div class="px-6 py-2 bg-indigo-50 dark:bg-indigo-500/10 border border-indigo-100 dark:border-indigo-500/20 rounded-2xl">
+                        <span class="text-sm font-black text-indigo-700 dark:text-indigo-400">${count.toLocaleString('id-ID')}</span>
+                        <span class="text-[10px] font-bold text-indigo-600/70 dark:text-indigo-400/70 ml-1 uppercase">Rencana</span>
+                    </div>
+                    
+                    <div class="mt-8 flex items-center gap-2 year-card-link font-bold text-sm group-hover:gap-4 transition-all duration-300 text-indigo-600 dark:text-indigo-400">
+                        <span>Buka Periode</span>
+                        <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                    </div>
+                </div>
+            `;
+            container.appendChild(card);
+        });
+        lucide.createIcons();
+    }
+    function openYearDetail(year) {
+        ACTIVE_YEAR = year;
+        ACTIVE_MONTH = "";
+
+        // Hide other views, show month view
+        document.getElementById('view-planning-years').classList.add('hidden');
+        document.getElementById('view-planning-list').classList.add('hidden');
+        document.getElementById('view-planning-months').classList.remove('hidden');
+        document.getElementById('selected-year-months').innerText = year;
+
+        // Filter data by year first
+        const filterFunc = (item) => item.periode && item.periode.toString().includes(year);
+        FILTERED_CERT = DATA_CERT.filter(filterFunc);
+        FILTERED_LAT = DATA_LAT.filter(filterFunc);
+
+        // Render month cards
+        renderMonthCards();
+    }
+
+    function renderMonthCards() {
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+        const monthData = {};
+
+        // Count data per month
+        [...FILTERED_CERT, ...FILTERED_LAT].forEach(item => {
+            if (!item.periode) return;
+            const p = item.periode.toString(); // Expected: YYYY-MM-DD
+
+            // Handle YYYY-MM-DD format
+            if (p.length >= 7 && p.charAt(4) === '-') {
+                const mIndex = parseInt(p.substring(5, 7)); // '01' -> 1
+                if (!isNaN(mIndex) && mIndex >= 1 && mIndex <= 12) {
+                    const mName = monthNames[mIndex - 1]; // 0-based index
+                    monthData[mName] = (monthData[mName] || 0) + 1;
+                }
+            } else { // Fallback for old/other format (e.g. "Jan 2024" )
+                monthNames.forEach(month => {
+                    if (p.includes(month)) {
+                        monthData[month] = (monthData[month] || 0) + 1;
+                    }
+                });
+            }
+        });
+
+        // Render month cards (HANYA yang ada datanya)
+        const container = document.getElementById('months-grid');
+        container.innerHTML = '';
+
+        // Filter: hanya render bulan yang punya data
+        monthNames.forEach(month => {
+            const count = monthData[month] || 0;
+
+            // Skip bulan yang kosong
+            if (count === 0) return;
+
+            const card = document.createElement('div');
+            card.className = 'month-card active';
+            card.onclick = () => openMonthDetail(month);
+            card.innerHTML = `
+    <h3>${month}</h3>
+    <p>${count} Data</p>
+    `;
+            container.appendChild(card);
+        });
+
+        // Tampilkan message jika tidak ada data sama sekali
+        if (container.children.length === 0) {
+            container.innerHTML = '<div class="col-span-full py-12 text-center text-gray-400">Tidak ada data untuk tahun ini.</div>';
+        }
+    }
+
+    function openMonthDetail(month) {
+        ACTIVE_MONTH = month;
+
+        // Hide month view, show list view
+        document.getElementById('view-planning-months').classList.add('hidden');
+        document.getElementById('view-planning-list').classList.remove('hidden');
+        document.getElementById('selected-year-display').innerText = `Tahun ${ACTIVE_YEAR} - ${month}`;
+        document.getElementById('emp-search-input').value = '';
+        document.getElementById('emp-filter-status').value = '';
+
+        // Month Name to Index Map for filtering
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+
+        // Filter by month AND year
+        const filterFunc = (item) => {
+            if (!item.periode) return false;
+            const p = item.periode.toString();
+
+            // Check Year
+            if (!p.includes(ACTIVE_YEAR)) return false;
+
+            // Check Month (Standard YYYY-MM-DD or Legacy)
+            if (p.length >= 7 && p.charAt(4) === '-') {
+                const mIndex = parseInt(p.substring(5, 7));
+                if (!isNaN(mIndex)) {
+                    return monthNames[mIndex - 1] === month;
+                }
+            }
+
+            // Fallback
+            return p.includes(month);
+        };
+
+        FILTERED_CERT = DATA_CERT.filter(filterFunc);
+        FILTERED_LAT = DATA_LAT.filter(filterFunc);
+
+        renderEmployeeList();
+    }
+    function backToYears() {
+        // If currently in list view, go back to months
+        if (!document.getElementById('view-planning-list').classList.contains('hidden')) {
+            document.getElementById('view-planning-list').classList.add('hidden');
+            document.getElementById('view-planning-months').classList.remove('hidden');
+            return;
+        }
+
+        // If currently in months view, go back to years
+        if (!document.getElementById('view-planning-months').classList.contains('hidden')) {
+            ACTIVE_YEAR = "";
+            ACTIVE_MONTH = "";
+            document.getElementById('view-planning-months').classList.add('hidden');
+            document.getElementById('view-planning-years').classList.remove('hidden');
+            renderYearCards();
+        }
+    }
+    function renderEmployeeList() {
+        const container = document.getElementById('employee-list-container');
+        if (!container) return;
+
+        container.innerHTML = '';
+        container.classList.remove('focus-mode');
+
+        const searchQuery = document.getElementById('emp-search-input').value.toLowerCase();
+        const statusFilter = document.getElementById('emp-filter-status').value;
+
+        CURRENT_YEAR_GROUPS = {};
+        [...FILTERED_CERT, ...FILTERED_LAT].forEach(item => {
+            const safeSap = String(item.sap).trim();
+            if (!CURRENT_YEAR_GROUPS[safeSap]) {
+                CURRENT_YEAR_GROUPS[safeSap] = { name: item.nama, certs: [], lats: [] };
+            }
+            if (item.type === 'cert') CURRENT_YEAR_GROUPS[safeSap].certs.push(item);
+            else CURRENT_YEAR_GROUPS[safeSap].lats.push(item);
+        });
+
+        const saps = Object.keys(CURRENT_YEAR_GROUPS);
+        if (saps.length === 0) {
+            container.innerHTML = '<div class="p-20 text-center flex flex-col items-center justify-center gap-3"><div class="w-16 h-16 bg-gray-50 dark:bg-slate-900 rounded-2xl flex items-center justify-center text-gray-300"><i data-lucide="inbox" class="w-8 h-8"></i></div><p class="text-gray-400 font-medium italic">Belum ada data perencanaan.</p></div>';
+            lucide.createIcons();
+            return;
+        }
+
+        let hasData = false;
+        saps.sort((a, b) => {
+            const nameA = String(CURRENT_YEAR_GROUPS[a].name || "");
+            const nameB = String(CURRENT_YEAR_GROUPS[b].name || "");
+            return nameA.localeCompare(nameB);
+        }).forEach((sap, index) => {
+            const g = CURRENT_YEAR_GROUPS[sap];
+            const txt = (g.name + " " + sap).toLowerCase();
+
+            if (!txt.includes(searchQuery)) return;
+            if (statusFilter !== "") {
+                const match = g.certs.some(c => c.statusAnggaran === statusFilter);
+                if (!match) return;
+            }
+
+            hasData = true;
+            const uniqueID = `emp-${index}`;
+            const div = document.createElement('div');
+            div.className = "bg-white dark:bg-slate-900 group border-b border-gray-100 dark:border-slate-800 transition-all duration-300";
+            div.innerHTML = `
+                <div onclick="toggleAccordion('${uniqueID}', 'employee-list-container')"
+                    class="grid grid-cols-12 px-6 py-5 items-center cursor-pointer hover:bg-indigo-50/50 dark:hover:bg-indigo-500/5 transition-all select-none">
+                    <div class="col-span-1 text-gray-400 font-mono text-[10px] font-bold uppercase tracking-widest">${index + 1}</div>
+                    <div class="col-span-2 text-gray-900 dark:text-gray-100 font-mono text-sm font-bold">${sap}</div>
+                    <div class="col-span-8">
+                        <div class="text-sm font-bold text-gray-800 dark:text-gray-100">${g.name}</div>
+                        <div class="flex items-center gap-3 mt-1.5">
+                            ${g.certs.length > 0 ? `
+                                <div class="flex items-center gap-1.5 px-2 py-0.5 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-lg border border-indigo-100 dark:border-indigo-500/20 text-[9px] font-black uppercase tracking-tighter">
+                                    <i data-lucide="scroll" class="w-2.5 h-2.5"></i>
+                                    ${g.certs.length} Cert
+                                </div>` : ''}
+                            ${g.lats.length > 0 ? `
+                                <div class="flex items-center gap-1.5 px-2 py-0.5 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-lg border border-emerald-100 dark:border-emerald-500/20 text-[9px] font-black uppercase tracking-tighter">
+                                    <i data-lucide="book-open" class="w-2.5 h-2.5"></i>
+                                    ${g.lats.length} LAT
+                                </div>` : ''}
+                        </div>
+                    </div>
+                    <div class="col-span-1 flex justify-center">
+                        <div class="w-8 h-8 rounded-full flex items-center justify-center group-hover:bg-indigo-100 dark:group-hover:bg-indigo-500/20 transition-all">
+                            <i data-lucide="chevron-down" id="icon-${uniqueID}" class="w-4 h-4 text-gray-300 dark:text-slate-600 transition-transform"></i>
+                        </div>
+                    </div>
+                </div>
+                <div id="content-${uniqueID}" class="accordion-content bg-gray-50/30 dark:bg-slate-900/40 border-t border-gray-100 dark:border-slate-800 hidden overflow-hidden transition-all duration-500">
+                    <div class="p-8">${renderDetailContent(uniqueID, g)}</div>
+                </div>`;
+            container.appendChild(div);
+        });
+
+        if (!hasData) {
+            container.innerHTML = '<div class="p-20 text-center flex flex-col items-center justify-center gap-3"><div class="w-16 h-16 bg-gray-50 dark:bg-slate-900 rounded-2xl flex items-center justify-center text-gray-300"><i data-lucide="search-x" class="w-8 h-8"></i></div><p class="text-gray-400 font-medium italic">Data tidak ditemukan untuk kata kunci ini.</p></div>';
+        }
+        lucide.createIcons();
+    }
+    function renderDetailContent(uniqueID, g) {
+        return `
+            <div class="flex items-center justify-between mb-8">
+                <div class="flex items-center gap-2 bg-white dark:bg-slate-800 p-1.5 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm">
+                    <button onclick="filterDetail(event, '${uniqueID}', 'all')"
+                        class="detail-tab-btn active px-5 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all">Semua</button>
+                    <button onclick="filterDetail(event, '${uniqueID}', 'cert')"
+                        class="detail-tab-btn px-5 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl text-gray-400 hover:text-indigo-600 transition-all">Cert</button>
+                    <button onclick="filterDetail(event, '${uniqueID}', 'lat')"
+                        class="detail-tab-btn px-5 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl text-gray-400 hover:text-emerald-600 transition-all">LAT</button>
+                </div>
+                <div class="text-[10px] text-gray-400 font-bold uppercase tracking-[0.2em]">Detail Perencanaan</div>
+            </div>
+
+            <div class="space-y-8">
+                <!-- SECTION: SERTIFIKASI -->
+                <div id="wrapper-${uniqueID}-cert" class="${g.certs.length === 0 ? 'hidden' : ''}">
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="w-8 h-8 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-xl flex items-center justify-center">
+                            <i data-lucide="scroll" class="w-4 h-4"></i>
+                        </div>
+                        <h4 class="text-xs font-black text-gray-400 uppercase tracking-[0.2em]">Data Sertifikasi</h4>
+                    </div>
+                    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm overflow-hidden">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-xs text-left whitespace-nowrap">
+                                <thead class="bg-gray-50/50 dark:bg-slate-950/50 text-gray-400 font-bold border-b border-gray-100 dark:border-slate-700 uppercase tracking-wider">
+                                    <tr>
+                                        <th class="px-6 py-4 w-12 text-center">No</th>
+                                        <th class="px-6 py-4">Item ID</th>
+                                        <th class="px-6 py-4">Judul Sertifikasi</th>
+                                        <th class="px-6 py-4">Periode</th>
+                                        <th class="px-6 py-4">Anggaran</th>
+                                        <th class="px-6 py-4">Status</th>
+                                        <th class="px-6 py-4 text-center">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-50 dark:divide-slate-700">
+                                    ${g.certs.map((c, i) => `
+                                        <tr class="hover:bg-indigo-50/30 dark:hover:bg-indigo-500/5 transition-colors group/row">
+                                            <td class="px-6 py-4 text-center text-gray-400 font-mono text-[10px]">${i + 1}</td>
+                                            <td class="px-6 py-4 font-mono font-bold text-indigo-600 dark:text-indigo-400">${c.itemId}</td>
+                                            <td class="px-6 py-4 font-bold text-gray-700 dark:text-gray-200 whitespace-normal min-w-[240px] leading-relaxed">${c.judul}</td>
+                                            <td class="px-6 py-4 text-gray-500 dark:text-gray-400 font-medium">${c.periode}</td>
+                                            <td class="px-6 py-4 font-bold text-gray-900 dark:text-gray-100 font-mono">${c.jumlah || '-'}</td>
+                                            <td class="px-6 py-4">
+                                                <span class="px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-tighter ${c.statusAnggaran === 'Tersedia' ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400' : 'bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400'}">
+                                                    ${c.statusAnggaran}
+                                                </span>
+                                            </td>
+                                            <td class="px-6 py-4">
+                                                <div class="flex justify-center gap-2">
+                                                    <button onclick='openEditModal("cert", "${c.id}")' class="w-8 h-8 flex items-center justify-center bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-full hover:bg-blue-600 hover:text-white transition-all shadow-sm" title="Edit Data">
+                                                        <i data-lucide="edit-2" class="w-3.5 h-3.5"></i>
+                                                    </button>
+                                                    <button onclick='deleteItem("cert", "${c.id}")' class="w-8 h-8 flex items-center justify-center bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 rounded-full hover:bg-red-600 hover:text-white transition-all shadow-sm" title="Hapus Data">
+                                                        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>`).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SECTION: LAT -->
+                <div id="wrapper-${uniqueID}-lat" class="${g.lats.length === 0 ? 'hidden' : ''}">
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="w-8 h-8 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-xl flex items-center justify-center">
+                            <i data-lucide="book-open" class="w-4 h-4"></i>
+                        </div>
+                        <h4 class="text-xs font-black text-gray-400 uppercase tracking-[0.2em]">Data LAT</h4>
+                    </div>
+                    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm overflow-hidden">
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-xs text-left whitespace-nowrap">
+                                <thead class="bg-gray-50/50 dark:bg-slate-950/50 text-gray-400 font-bold border-b border-gray-100 dark:border-slate-700 uppercase tracking-wider">
+                                    <tr>
+                                        <th class="px-6 py-4 w-12 text-center">No</th>
+                                        <th class="px-6 py-4">Item ID</th>
+                                        <th class="px-6 py-4">Judul Pelatihan</th>
+                                        <th class="px-6 py-4">Instruktur</th>
+                                        <th class="px-6 py-4">Periode</th>
+                                        <th class="px-6 py-4 text-center">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-50 dark:divide-slate-700">
+                                    ${g.lats.map((l, i) => `
+                                        <tr class="hover:bg-emerald-50/30 dark:hover:bg-emerald-500/5 transition-colors group/row">
+                                            <td class="px-6 py-4 text-center text-gray-400 font-mono text-[10px]">${i + 1}</td>
+                                            <td class="px-6 py-4 font-mono font-bold text-emerald-600 dark:text-emerald-400">${l.itemId}</td>
+                                            <td class="px-6 py-4 font-bold text-gray-700 dark:text-gray-200 whitespace-normal min-w-[240px] leading-relaxed">${l.judul}</td>
+                                            <td class="px-6 py-4 text-gray-500 dark:text-gray-400 font-medium">${l.instruktur}</td>
+                                            <td class="px-6 py-4 text-gray-500 dark:text-gray-400 font-medium font-mono text-[10px]">${l.periode}</td>
+                                            <td class="px-6 py-4">
+                                                <div class="flex justify-center gap-2">
+                                                    <button onclick='openEditModal("lat", "${l.id}")' class="w-8 h-8 flex items-center justify-center bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-full hover:bg-blue-600 hover:text-white transition-all shadow-sm" title="Edit Data">
+                                                        <i data-lucide="edit-2" class="w-3.5 h-3.5"></i>
+                                                    </button>
+                                                    <button onclick='deleteItem("lat", "${l.id}")' class="w-8 h-8 flex items-center justify-center bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 rounded-full hover:bg-red-600 hover:text-white transition-all shadow-sm" title="Hapus Data">
+                                                        <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>`).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+    }
+
+    // --- LOGIC PELAKSANAAN (NEW) ---
+    function renderRealizationYears() {
+        console.log('🏁 Starting renderRealizationYears()...');
+        console.log('📊 DATA_REAL:', DATA_REAL);
+        console.log('📊 DATA_REAL.length:', (DATA_REAL || []).length);
+
+        if (!DATA_REAL) {
+            console.error('❌ DATA_REAL is undefined!');
+            alert('ERROR: Data pelaksanaan tidak ter-load. Silakan refresh halaman.');
+            return;
+        }
+
+
+
+        const viewYears = document.getElementById('view-realization-years');
+        const viewList = document.getElementById('view-realization-list');
+
+        if (viewYears) viewYears.classList.remove('hidden');
+        if (viewList) viewList.classList.add('hidden');
+
+        const years = new Set();
+        const yearCounts = {};
+        DATA_REAL.forEach(item => {
+            var t = "";
+            if (item.tahun !== undefined && item.tahun !== null) {
+                t = String(item.tahun).trim();
+            }
+
+            // Skip #N/A names
+            const name = String(item.nama || "");
+            if (name.includes('#N/A')) return;
+
+            years.add(t);
+            if (t) {
+                yearCounts[t] = (yearCounts[t] || 0) + 1;
+            }
+        });
+
+        const container = document.getElementById('years-grid-realization');
+        if (!container) return;
+
+        container.innerHTML = '';
+
+        if (years.size === 0 && DATA_REAL.length === 0) {
+            if (_dashLoadCount < 7) {
+                container.innerHTML = `
+                    <div class="col-span-full flex flex-col items-center justify-center py-20 gap-4">
+                        <div class="loader-ring !w-12 !h-12 border-t-[#10B981]"></div>
+                        <div class="text-center">
+                            <p class="text-gray-500 font-bold animate-pulse text-sm">Sedang mengambil data peserta...</p>
+                            <p class="text-[10px] text-gray-400 mt-1 uppercase tracking-widest">Sistem Sedang Menghubungkan</p>
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+            container.innerHTML = "<div class='col-span-full text-center text-gray-400 py-12'>Tidak ada data pelaksanaan.</div>";
+            return;
+        }
+
+        const validYears = Array.from(years).filter(y => y !== "").sort().reverse();
+
+        validYears.forEach(year => {
+            const count = yearCounts[year] || 0;
+            const card = document.createElement('div');
+            card.className = "year-card-premium group";
+            card.innerHTML = `
+                <div class="flex flex-col items-center text-center">
+                    <div class="w-20 h-20 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-[28px] flex items-center justify-center mb-6 group-hover:scale-110 group-hover:rotate-3 transition-all duration-500">
+                        <i data-lucide="calendar" class="w-10 h-10"></i>
+                    </div>
+                    <h3 class="font-black text-4xl year-card-title mb-1">${year}</h3>
+                    <p class="text-[10px] font-bold year-card-subtitle uppercase tracking-widest mb-6">Tahun Pelaksanaan</p>
+                    
+                    <div class="px-6 py-2 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-500/20 rounded-2xl">
+                        <span class="text-sm font-black text-emerald-700 dark:text-emerald-400">${count.toLocaleString('id-ID')}</span>
+                        <span class="text-[10px] font-bold text-emerald-600/70 dark:text-emerald-400/70 ml-1 uppercase">Data Peserta</span>
+                    </div>
+                    
+                    <div class="mt-8 flex items-center gap-2 year-card-link font-bold text-sm group-hover:gap-4 transition-all duration-300">
+                        <span>Lihat Laporan</span>
+                        <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                    </div>
+                </div>
+            `;
+            card.onclick = () => openRealizationDetail(year);
+            container.appendChild(card);
+        });
+
+        lucide.createIcons();
+    }
+
+
+
+    function openRealizationDetail(year) {
+        ACTIVE_REAL_YEAR = year;
+        document.getElementById('view-realization-years').classList.add('hidden');
+        document.getElementById('view-realization-list').classList.remove('hidden');
+
+        let title = "Tahun " + year;
+        if (year === "") title = "Data Pelaksanaan";
+        document.getElementById('selected-year-realization').innerText = title;
+
+        document.getElementById('real-search-input').value = '';
+
+        // FILTER: Ambil data tahun terpilih ATAU data yang tahunnya kosong (nebeng)
+        // Skip #N/A names
+        if (year === "") {
+            FILTERED_REAL = DATA_REAL.filter(item => {
+                const isYearMatch = !item.tahun || String(item.tahun).trim() === "";
+                const isNotNA = !String(item.nama || "").includes('#N/A');
+                return isYearMatch && isNotNA;
+            });
+        } else {
+            FILTERED_REAL = DATA_REAL.filter(item => {
+                const isYearMatch = String(item.tahun) === String(year) || !item.tahun || String(item.tahun).trim() === "";
+                const isNotNA = !String(item.nama || "").includes('#N/A');
+                return isYearMatch && isNotNA;
+            });
+        }
+
+        renderRealizationList();
+    }
+    function backToRealizationYears() {
+        ACTIVE_REAL_YEAR = "";
+        document.getElementById('view-realization-list').classList.add('hidden');
+        document.getElementById('view-realization-years').classList.remove('hidden');
+        renderRealizationYears();
+    }
+    function switchRealizationView(mode) {
+        REALIZATION_VIEW_MODE = mode;
+        const btnPeserta = document.getElementById('tab-real-peserta');
+        const btnJudul = document.getElementById('tab-real-judul');
+        if (btnPeserta) btnPeserta.classList.toggle('active', mode === 'peserta');
+        if (btnJudul) btnJudul.classList.toggle('active', mode === 'judul');
+
+        // Update header table UI
+        const headerContainer = document.querySelector('#view-realization-list .grid-cols-12');
+        if (headerContainer) {
+            if (mode === 'peserta') {
+                headerContainer.innerHTML = `
+                    <div class="col-span-1">No</div>
+                    <div class="col-span-2">SAP</div>
+                    <div class="col-span-8">Nama Peserta</div>
+                    <div class="col-span-1 text-center">Detail</div>
+                `;
+            } else {
+                headerContainer.innerHTML = `
+                    <div class="col-span-1">No</div>
+                    <div class="col-span-9">Judul Pelatihan</div>
+                    <div class="col-span-2 text-center">Total Peserta</div>
+                `;
+            }
+        }
+
+        renderRealizationList();
+    }
+
+    function renderRealizationList() {
+        const query = document.getElementById('real-search-input').value.toLowerCase();
+        const container = document.getElementById('realization-list-container');
+        if (!container) return;
+
+        container.innerHTML = "";
+        container.classList.remove('focus-mode');
+
+        // Always filter by current year and clean data
+        let data = DATA_REAL.filter(r => {
+            const isYearMatch = String(r.tahun) === String(ACTIVE_REAL_YEAR);
+            const isNotNA = !String(r.nama || r.namaPeserta || "").includes('#N/A');
+            return isYearMatch && isNotNA;
+        });
+
+        if (REALIZATION_VIEW_MODE === 'peserta') {
+            renderRealizationByPeserta(data, query);
+        } else {
+            renderRealizationByJudul(data, query);
+        }
+    }
+
+    function renderRealizationByPeserta(data, query) {
+        const container = document.getElementById('realization-list-container');
+        const groups = {};
+        data.forEach(r => {
+            const matches = (r.namaPeserta + " " + r.sapPeserta).toLowerCase().includes(query);
+            if (matches) {
+                if (!groups[r.sapPeserta]) {
+                    groups[r.sapPeserta] = { sap: r.sapPeserta, name: r.namaPeserta, unit: r.unitKerja, items: [] };
+                }
+                groups[r.sapPeserta].items.push(r);
+            }
+        });
+
+        const saps = Object.keys(groups).sort((a, b) => String(groups[a].name).localeCompare(String(groups[b].name)));
+        if (saps.length === 0) {
+            container.innerHTML = "<div class='p-8 text-center text-gray-400'>Tidak ada data peserta ditemukan.</div>";
+            return;
+        }
+
+        saps.forEach((sap, i) => {
+            const g = groups[sap];
+            const uniqueID = 'real-' + sap.replace(/\s+/g, '-');
+            const div = document.createElement('div');
+            div.className = "bg-white dark:bg-slate-900 group border-b border-gray-100 dark:border-slate-800";
+            div.innerHTML = `
+<div onclick="toggleAccordion('${uniqueID}')" class="grid grid-cols-12 px-6 py-5 cursor-pointer hover:bg-emerald-50 transition-all items-center">
+  <div class="col-span-1 text-xs text-gray-400 font-medium">${i + 1}</div>
+  <div class="col-span-2 text-gray-900 dark:text-gray-100 font-mono text-sm font-medium">${sap}</div>
+  <div class="col-span-8">
+    <div class="text-sm font-bold text-gray-800 dark:text-gray-200">${g.name}</div>
+    <div class="flex items-center gap-2 mt-1">
+        <div class="text-[10px] text-gray-400 uppercase tracking-widest">${g.unit || '-'}</div>
+        <span class="w-1 h-1 bg-gray-300 dark:bg-slate-700 rounded-full"></span>
+        <div class="text-[10px] font-bold text-emerald-500 uppercase tracking-tighter">${g.items.length} Pelatihan</div>
+    </div>
+  </div>
+  <div class="col-span-1 text-center">
+    <i data-lucide="chevron-down" class="w-4 h-4 text-gray-300 dark:text-slate-600 mx-auto transition-transform"></i>
+  </div>
+</div>
+<div id="content-${uniqueID}" class="accordion-content bg-gray-50/50 dark:bg-slate-900/50 border-t border-gray-100 dark:border-slate-800 hidden">
+  <div class="px-4 lg:px-12 py-8">
+    <div class="mb-4 flex items-center gap-3">
+        <div class="w-8 h-8 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-lg flex items-center justify-center">
+            <i data-lucide="book-open" class="w-4 h-4"></i>
+        </div>
+        <h4 class="text-xs font-black text-gray-400 dark:text-gray-500 uppercase tracking-[0.2em]">Riwayat Pelatihan Peserta</h4>
+    </div>
+    <div class="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-xs text-left whitespace-nowrap">
+          <thead class="bg-gray-100 dark:bg-slate-950 text-gray-500 dark:text-gray-300 font-bold border-b border-gray-100 dark:border-slate-800 uppercase tracking-wider">
+            <tr>
+              <th class="px-6 py-4">Mulai</th>
+              <th class="px-6 py-4">Selesai</th>
+              <th class="px-6 py-4">Item ID</th>
+              <th class="px-6 py-4">Judul Pelatihan</th>
+              <th class="px-6 py-4">Ruangan</th>
+              <th class="px-4 py-4 text-center">Presensi</th>
+              <th class="px-6 py-4">Departemen</th>
+              <th class="px-6 py-4">Unit Kerja</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-50 dark:divide-slate-700/50">
+            ${g.items.map(item => `
+            <tr class="hover:bg-emerald-50/10 dark:hover:bg-emerald-500/5 transition-colors">
+              <td class="px-6 py-3 text-gray-500 dark:text-gray-400">${item.sapStart ? new Date(item.sapStart).toLocaleDateString() : '-'}</td>
+              <td class="px-6 py-3 text-gray-500 dark:text-gray-400">${item.end ? new Date(item.end).toLocaleDateString() : '-'}</td>
+              <td class="px-6 py-3 text-xs font-mono text-emerald-600 dark:text-emerald-400 font-bold">${item.itemId || '-'}</td>
+              <td class="px-6 py-3 font-bold text-gray-800 dark:text-gray-200 whitespace-normal min-w-[200px]">${item.courseTitle || '-'}</td>
+              <td class="px-6 py-3 text-gray-500 dark:text-gray-400">${item.room || '-'}</td>
+              <td class="px-4 py-3 text-center">
+                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${item.presensi === 'Hadir' ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-gray-50 dark:bg-slate-700 text-gray-400 dark:text-gray-500'}">
+                  ${item.presensi || '-'}
+                </span>
+              </td>
+              <td class="px-6 py-3 text-gray-500 dark:text-gray-400">${item.departemen || '-'}</td>
+              <td class="px-6 py-3 text-gray-500 dark:text-gray-400">${item.unitKerja || '-'}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>`;
+            container.appendChild(div);
+        });
+        lucide.createIcons();
+    }
+
+    function renderRealizationByJudul(data, query) {
+        const container = document.getElementById('realization-list-container');
+        const groups = {};
+        data.forEach(r => {
+            const title = r.courseTitle || r.judulPelatihan || "-";
+            const matches = title.toLowerCase().includes(query);
+            if (matches) {
+                if (!groups[title]) {
+                    groups[title] = {
+                        title: title,
+                        participants: {},
+                        maxRow: 0,
+                        itemId: r.itemId || ""
+                    };
+                }
+                const rowNum = parseInt(r.rowIndex) || 0;
+                if (rowNum > groups[title].maxRow) groups[title].maxRow = rowNum;
+
+                if (!groups[title].participants[r.sapPeserta]) {
+                    groups[title].participants[r.sapPeserta] = {
+                        sap: r.sapPeserta,
+                        name: r.namaPeserta,
+                        unit: r.unitKerja,
+                        presensi: r.presensi
+                    };
+                }
+            }
+        });
+
+        const sortedTitles = Object.keys(groups).sort((a, b) => groups[b].maxRow - groups[a].maxRow);
+
+        if (sortedTitles.length === 0) {
+            container.innerHTML = "<div class='p-8 text-center text-gray-400'>Tidak ada judul pelatihan ditemukan.</div>";
+            return;
+        }
+
+        sortedTitles.forEach((title, i) => {
+            const g = groups[title];
+            const pList = Object.values(g.participants);
+            const uniqueID = 'title-' + title.replace(/[^a-zA-Z0-9]/g, '-');
+            const div = document.createElement('div');
+            div.className = "bg-white dark:bg-slate-900 group border-b border-gray-100 dark:border-slate-800";
+            div.innerHTML = `
+                <div onclick="toggleAccordion('${uniqueID}')" class="grid grid-cols-12 px-6 py-5 items-center cursor-pointer hover:bg-emerald-50 transition-all">
+                    <div class="col-span-1 text-xs text-gray-400 font-medium">${i + 1}</div>
+                    <div class="col-span-9">
+                        <div class="text-sm font-bold text-gray-900 dark:text-gray-100 group-hover:text-emerald-600 transition-colors">${g.title}</div>
+                        <div class="flex items-center gap-2 mt-1">
+                            <div class="text-[10px] text-gray-400 uppercase tracking-widest">Sertifikasi & LAT</div>
+                            <span class="w-1 h-1 bg-gray-300 dark:bg-slate-700 rounded-full"></span>
+                            <div class="text-[9px] text-emerald-500 font-bold uppercase tracking-tighter">Item ID: ${g.itemId || '-'}</div>
+                        </div>
+                    </div>
+                    <div class="col-span-2 text-right flex items-center justify-end gap-4">
+                        <span class="inline-flex items-center px-4 py-1.5 bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-500/20 rounded-2xl text-xs font-black shadow-sm">
+                            ${pList.length} Peserta
+                        </span>
+                        <i data-lucide="chevron-down" class="w-4 h-4 text-gray-300 dark:text-slate-600 transition-transform"></i>
+                    </div>
+                </div>
+                <div id="content-${uniqueID}" class="accordion-content bg-gray-50/50 dark:bg-slate-900/50 border-t border-gray-100 dark:border-slate-800 hidden">
+                    <div class="px-4 lg:px-12 py-6">
+                        <div class="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200 dark:border-slate-700 shadow-sm overflow-hidden">
+                            <table class="w-full text-left">
+                                <thead class="bg-gray-100 dark:bg-slate-950 border-b border-gray-100 dark:border-slate-800">
+                                    <tr>
+                                        <th class="px-6 py-4 text-[10px] font-bold text-gray-500 dark:text-gray-300 uppercase tracking-wider">No</th>
+                                        <th class="px-6 py-4 text-[10px] font-bold text-gray-500 dark:text-gray-300 uppercase tracking-wider">SAP</th>
+                                        <th class="px-6 py-4 text-[10px] font-bold text-gray-500 dark:text-gray-300 uppercase tracking-wider">Nama Peserta</th>
+                                        <th class="px-6 py-4 text-[10px] font-bold text-gray-500 dark:text-gray-300 uppercase tracking-wider">Unit Kerja</th>
+                                        <th class="px-6 py-4 text-[10px] font-bold text-gray-500 dark:text-gray-300 uppercase tracking-wider text-center">Presensi</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-50 dark:divide-slate-700/50">
+                                    ${pList.map((p, idx) => `
+                                        <tr class="hover:bg-emerald-50/10 dark:hover:bg-emerald-500/5 transition-colors">
+                                            <td class="px-6 py-3 text-xs text-gray-400 dark:text-gray-500">${idx + 1}</td>
+                                            <td class="px-6 py-3 text-xs font-mono text-gray-600 dark:text-gray-400">${p.sap}</td>
+                                            <td class="px-6 py-3 text-xs font-bold text-gray-800 dark:text-gray-200">${p.name}</td>
+                                            <td class="px-6 py-3 text-xs text-gray-500 dark:text-gray-400">${p.unit || '-'}</td>
+                                            <td class="px-6 py-3 text-center">
+                                                <span class="px-2 py-0.5 rounded-full text-[10px] font-bold ${p.presensi === 'Hadir' ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400' : 'bg-gray-50 dark:bg-slate-700 text-gray-400 dark:text-gray-500'}">
+                                                  ${p.presensi || '-'}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            `;
+            container.appendChild(div);
+        });
+        lucide.createIcons();
+    }
+
+    // --- HELPERS ---
+    function toggleAccordion(uid, containerId = 'realization-list-container') {
+        const el = document.getElementById('content-' + uid);
+        const parentRow = el ? el.closest('.bg-white.group') : null;
+        const container = document.getElementById(containerId);
+        const arrow = document.getElementById('icon-' + uid);
+
+        if (!el || !container) return;
+
+        const isOpening = el.classList.contains('hidden');
+
+        // 1. Reset all other items in the same container
+        container.querySelectorAll('.accordion-content').forEach(content => {
+            if (content.id !== 'content-' + uid) {
+                content.classList.add('hidden');
+                content.classList.remove('show');
+                const otherParent = content.closest('.bg-white.group');
+                if (otherParent) {
+                    otherParent.classList.remove('active-focus');
+                    // Find arrow in the other parent
+                    const otherUid = content.id.replace('content-', '');
+                    const otherArrow = document.getElementById('icon-' + otherUid);
+                    if (otherArrow) otherArrow.style.transform = 'rotate(0deg)';
+                }
+            }
+        });
+
+        if (isOpening) {
+            // 2. Open current and apply focus
+            el.classList.remove('hidden');
+            setTimeout(() => {
+                el.classList.add('show');
+                lucide.createIcons();
+            }, 10);
+            if (parentRow) parentRow.classList.add('active-focus');
+            container.classList.add('focus-mode');
+            if (arrow) arrow.style.transform = 'rotate(180deg)';
+        } else {
+            // 3. Close current and remove focus
+            el.classList.remove('show');
+            setTimeout(() => el.classList.add('hidden'), 300);
+            if (parentRow) parentRow.classList.remove('active-focus');
+
+            // Check if any other item is still open before removing focus-mode
+            const stillOpen = container.querySelector('.accordion-content.show');
+            if (!stillOpen) container.classList.remove('focus-mode');
+
+            if (arrow) arrow.style.transform = 'rotate(0deg)';
+        }
+    }
+    function filterDetail(e, uid, type) {
+        e.stopPropagation();
+        const cert = document.getElementById(`wrapper-${uid}-cert`);
+        const lat = document.getElementById(`wrapper-${uid}-lat`);
+
+        // Update tab styles
+        const btns = e.target.parentElement.querySelectorAll('.detail-tab-btn');
+        btns.forEach(b => {
+            b.classList.remove('active', 'text-indigo-600', 'text-emerald-600');
+            b.classList.add('text-gray-400');
+        });
+        e.target.classList.add('active');
+        e.target.classList.remove('text-gray-400');
+
+        if (type === 'all') { cert.classList.remove('hidden-force'); lat.classList.remove('hidden-force'); }
+        else if (type === 'cert') { cert.classList.remove('hidden-force'); lat.classList.add('hidden-force'); }
+        else { cert.classList.add('hidden-force'); lat.classList.remove('hidden-force'); }
+    }
+    function toggleAddDropdown(e) {
+        e.stopPropagation();
+        document.getElementById('add-dropdown-menu').classList.toggle('hidden');
+    }
+    function openModal(type) {
+        document.getElementById('add-dropdown-menu').classList.add('hidden');
+        document.getElementById('addForm').reset();
+        document.getElementById('form-id').value = '';
+        document.getElementById('form-edit-mode').value = 'add';
+        if (ACTIVE_YEAR) { document.getElementById('form-periode').value = "Jan " + ACTIVE_YEAR; }
+        const modal = document.getElementById('data-modal'); modal.classList.remove('hidden');
+        document.getElementById('form-type').value = type;
+        document.getElementById('modal-title').innerText = type === 'cert' ? 'Tambah Sertifikasi' : 'Tambah LAT';
+        document.getElementById('btn-save').innerText = 'Simpan';
+        if (type === 'cert') {
+            document.getElementById('fields-cert').classList.remove('hidden');
+            document.getElementById('fields-lat').classList.add('hidden');
+        } else {
+            document.getElementById('fields-cert').classList.add('hidden');
+            document.getElementById('fields-lat').classList.remove('hidden');
+        }
+    }
+    function closeModal() {
+        document.getElementById('data-modal').classList.add('hidden');
+        document.getElementById('addForm').reset();
+    }
+    function saveData(event) {
+        event.preventDefault();
+        const btn = document.getElementById('btn-save');
+        btn.innerText = 'Menyimpan...';
+        btn.disabled = true;
+        const editMode = document.getElementById('form-edit-mode').value;
+        const formData = {
+            id: document.getElementById('form-id').value,
+            sap: document.getElementById('form-sap').value,
+            nama: document.getElementById('form-nama').value,
+            itemId: document.getElementById('form-itemId').value,
+            judul: document.getElementById('form-judul').value,
+            periode: document.getElementById('form-periode').value,
+            mandatory: document.getElementById('form-mandatory').value,
+            resiko: document.getElementById('form-resiko').value,
+        };
+        const type = document.getElementById('form-type').value;
+        const handler = () => {
+            notifySuccess(editMode === 'edit' ? 'Data berhasil diperbarui!' : 'Data berhasil ditambahkan!');
+            closeModal();
+            loadData();
+            btn.disabled = false;
+            btn.innerText = 'Simpan';
+        };
+        const failHandler = (err) => {
+            notifyError('Error: ' + (err.message || err));
+            btn.disabled = false;
+            btn.innerText = 'Simpan';
+        };
+        const token = localStorage.getItem('sessionToken');
+        if (type === 'cert') {
+            formData.jumlah = document.getElementById('form-jumlah').value;
+            formData.statusAnggaran = document.getElementById('form-status').value;
+            if (editMode === 'edit') {
+                google.script.run.withSuccessHandler(handler).withFailureHandler(failHandler).updateData(token, formData);
+            } else {
+                google.script.run.withSuccessHandler(handler).withFailureHandler(failHandler).addData(token, formData);
+            }
+        } else {
+            formData.instruktur = document.getElementById('form-instruktur').value;
+            if (editMode === 'edit') {
+                google.script.run.withSuccessHandler(handler).withFailureHandler(failHandler).updateLATData(token, formData);
+            } else {
+                google.script.run.withSuccessHandler(handler).withFailureHandler(failHandler).addLATData(token, formData);
+            }
+        }
+    }
+
+    // --- FUNGSI EDIT & HAPUS CERT / LAT ---
+    function openEditModal(type, itemId) {
+        const dataset = type === 'cert' ? DATA_CERT : DATA_LAT;
+        const item = dataset.find(i => String(i.id) === String(itemId));
+        if (!item) { alert('Data tidak ditemukan! Mungkin ID belum tersedia di data.'); return; }
+
+        document.getElementById('addForm').reset();
+        document.getElementById('form-id').value = item.id;
+        document.getElementById('form-edit-mode').value = 'edit';
+        document.getElementById('form-type').value = type;
+        document.getElementById('modal-title').innerText = type === 'cert' ? 'Edit Sertifikasi' : 'Edit LAT';
+        document.getElementById('btn-save').innerText = 'Simpan Perubahan';
+
+        // Isi field umum
+        document.getElementById('form-sap').value = item.sap || '';
+        document.getElementById('form-nama').value = item.nama || '';
+        document.getElementById('form-itemId').value = item.itemId || '';
+        document.getElementById('form-judul').value = item.judul || '';
+        document.getElementById('form-periode').value = item.periode || '';
+        document.getElementById('form-mandatory').value = item.mandatory || '';
+        document.getElementById('form-resiko').value = item.resiko || '';
+
+        if (type === 'cert') {
+            document.getElementById('fields-cert').classList.remove('hidden');
+            document.getElementById('fields-lat').classList.add('hidden');
+            document.getElementById('form-jumlah').value = item.jumlah || '';
+            document.getElementById('form-status').value = item.statusAnggaran || 'Tersedia';
+        } else {
+            document.getElementById('fields-cert').classList.add('hidden');
+            document.getElementById('fields-lat').classList.remove('hidden');
+            document.getElementById('form-instruktur').value = item.instruktur || '';
+        }
+
+        document.getElementById('data-modal').classList.remove('hidden');
+    }
+
+    function deleteItem(type, itemId) {
+        askDeletion('Yakin ingin menghapus data ini? Tindakan ini tidak bisa dibatalkan.', (confirm) => {
+            if (!confirm) return;
+
+            const handler = (response) => {
+                if (response && response.success === false) {
+                    notifyError('Gagal hapus: ' + response.error);
+                } else {
+                    notifySuccess('Data berhasil dihapus!');
+                    loadData();
+                }
+            };
+            const failHandler = (err) => notifyError('Error: ' + (err.message || err));
+
+            const token = localStorage.getItem('sessionToken');
+            if (type === 'cert') {
+                google.script.run.withSuccessHandler(handler).withFailureHandler(failHandler).deleteData(token, itemId);
+            } else {
+                google.script.run.withSuccessHandler(handler).withFailureHandler(failHandler).deleteLATData(token, itemId);
+            }
+        });
+    }
+
+    // --- FUNGSI EDIT & HAPUS PELAKSANAAN ---
+    // Removed realization CRUD/Modal functions (openEditRealizationModal, deleteRealizationItem, openRealizationModal, etc.)
+
+
+    /* ─────────────────────────────────────────────────────────────────────────────
+    * EVALUASI LOGIC
+    * ───────────────────────────────────────────────────────────────────────────── */
+
+    function onL1Loaded(data) {
+        console.log('✅ L1 Loaded:', (data || []).length);
+        DATA_L1 = data || [];
+
+        enrichL1Data(); // Try to enrich immediately
+
+        // If we are already in Evaluasi view, refresh
+        if (!document.getElementById('page-evaluasi').classList.contains('hidden')) {
+            if (ACTIVE_EVALUASI_YEAR) {
+                renderL1List();
+            } else {
+                renderEvaluasiYears();
+            }
+        }
+        _tryUpdateDashboard();
+    }
+
+    function renderEvaluasiYears() {
+        document.getElementById('evaluasi-view-years').classList.remove('hidden');
+        document.getElementById('evaluasi-view-detail').classList.add('hidden');
+        ACTIVE_EVALUASI_YEAR = "";
+
+        const yearCounts = {};
+        // Count L1 data per year
+        DATA_L1.forEach(item => {
+            if (item.tahun) {
+                yearCounts[item.tahun] = (yearCounts[item.tahun] || 0) + 1;
+            }
+        });
+        // Count L2 data per year
+        DATA_L2.forEach(item => {
+            if (item.tahun) {
+                yearCounts[item.tahun] = (yearCounts[item.tahun] || 0) + 1;
+            }
+        });
+        // Count L3 data per year
+        DATA_L3.forEach(item => {
+            if (item.tahun) {
+                yearCounts[item.tahun] = (yearCounts[item.tahun] || 0) + 1;
+            }
+        });
+
+        // Get years from Realization too, to show empty years if valid
+        const realYears = new Set(DATA_REAL.map(d => String(d.tahun)));
+        Object.keys(yearCounts).forEach(y => realYears.add(y));
+
+        const sortedYears = Array.from(realYears).sort();
+
+        const container = document.getElementById('evaluasi-years-grid');
+        container.innerHTML = '';
+
+        if (sortedYears.length === 0) {
+            container.innerHTML = '<div class="col-span-3 text-center text-gray-500 py-10">Belum ada data evaluasi atau pelaksanaan.</div>';
+            return;
+        }
+
+        sortedYears.forEach(year => {
+            const count = yearCounts[year] || 0;
+            const card = document.createElement('div');
+            card.className = "bg-white p-6 rounded-xl border border-gray-200 shadow-sm cursor-pointer hover:shadow-lg transition-all transform hover:-translate-y-1";
+            card.onclick = () => selectEvaluasiYear(year);
+            card.innerHTML = `
+<div class="flex items-center justify-between mb-4">
+  <div
+    class="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center">
+    <i data-lucide="calendar" class="w-6 h-6"></i></div>
+  <span class="bg-indigo-100 text-indigo-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">Evaluasi</span>
+</div>
+<h3 class="text-xl font-bold text-gray-900 mb-1">${year}</h3>
+<p class="text-sm text-gray-500">${count} Data Evaluasi</p>
+<div class="mt-4 text-indigo-600 text-sm font-medium flex items-center gap-1">
+  Lihat Evaluasi <i data-lucide="arrow-right" class="w-4 h-4"></i>
+</div>
+`;
+            container.appendChild(card);
+        });
+        lucide.createIcons();
+    }
+
+    function selectEvaluasiYear(year) {
+        ACTIVE_EVALUASI_YEAR = year;
+        document.getElementById('evaluasi-active-year').innerText = year;
+
+        document.getElementById('evaluasi-view-years').classList.add('hidden');
+        document.getElementById('evaluasi-view-detail').classList.remove('hidden');
+
+        // Default call L1
+        switchEvaluasiTab('l1');
+    }
+
+
+    function formatScore(value) {
+        if (value === null || value === undefined || value === '') return '-';
+        const num = parseFloat(String(value).replace(',', '.'));
+        if (isNaN(num)) return value;
+        return Math.round(num);
+    }
+
+    function closeEvaluasiDetail() {
+        document.getElementById('evaluasi-view-detail').classList.add('hidden');
+        document.getElementById('evaluasi-view-years').classList.remove('hidden');
+        ACTIVE_EVALUASI_YEAR = "";
+        renderEvaluasiYears(); // Refresh counts
+    }
+
+    function switchEvaluasiTab(tab) {
+        // Update Buttons
+        ['l1', 'l2', 'l3'].forEach(t => {
+            const btn = document.getElementById('tab-' + t);
+            const div = document.getElementById('evaluasi-content-' + t);
+            if (t === tab) {
+                btn.classList.add('border-indigo-600', 'text-indigo-600');
+                btn.classList.remove('border-transparent', 'text-gray-500');
+                div.classList.remove('hidden');
+            } else {
+                btn.classList.remove('border-indigo-600', 'text-indigo-600');
+                btn.classList.add('border-transparent', 'text-gray-500');
+                div.classList.add('hidden');
+            }
+        });
+
+        if (tab === 'l1') renderL1List();
+        if (tab === 'l2') renderL2List();
+        if (tab === 'l3') renderL3List();
+    }
+
+    /* --- L3 EVALUATION LOGIC --- */
+
+    function onL3Loaded(data) {
+        console.log('✅ L3 Loaded:', (data || []).length);
+        DATA_L3 = data || [];
+        enrichL3Data();
+        if (!document.getElementById('page-evaluasi').classList.contains('hidden')) {
+            if (ACTIVE_EVALUASI_YEAR && document.getElementById('tab-l3').classList.contains('text-indigo-600')) {
+                renderL3List();
+            }
+        }
+        _tryUpdateDashboard();
+    }
+
+
+    function renderL3List() {
+        let filtered = DATA_L3.filter(item => String(item.tahun) === String(ACTIVE_EVALUASI_YEAR));
+        FILTERED_L3 = filtered;
+        displayL3Data(filtered);
+    }
+
+    function displayL3Data(data) {
+        const inner = document.getElementById('l3-list-container');
+        if (!inner) return;
+
+        if (data.length === 0) {
+            inner.innerHTML = '<div class="text-center py-10 text-gray-500 bg-gray-50 rounded-xl border border-dashed border-gray-300">Tidak ada data evaluasi L3 untuk kriteria pencarian ini.</div>';
+            return;
+        }
+
+        inner.innerHTML = `
+        <div class="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+          <div class="overflow-x-auto">
+            <table class="w-full text-xs text-left whitespace-nowrap">
+              <thead class="bg-gray-50 text-gray-500 font-bold border-b uppercase">
+                <tr>
+                  <th class="px-4 py-3 w-10">NO</th>
+                  <th class="px-4 py-3">ITEM ID</th>
+                  <th class="px-4 py-3">JUDUL PELATIHAN</th>
+                  <th class="px-4 py-3">NAMA PESERTA (SAP)</th>
+                  <th class="px-4 py-3 text-center">SKOR EVALUASI</th>
+                  <th class="px-4 py-3">KEY BEHAVIOUR</th>
+                  <th class="px-4 py-3">TANGGAL EVAL</th>
+                  <th class="px-4 py-3">KET</th>
+                  <th class="px-4 py-3 text-center">ACTIONS</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100">
+                ${data.map((item, i) => `
+                  <tr class="hover:bg-indigo-50 transition-colors">
+                    <td class="px-4 py-2 text-center text-gray-500 font-medium border-r border-gray-50">${i + 1}</td>
+                    <td class="px-4 py-2 text-[10px] font-mono text-emerald-600 font-bold border-r border-gray-50">${item.itemId || '-'}</td>
+                    <td class="px-4 py-2 font-bold text-gray-900 border-r border-gray-50">${item.judulPelatihan || '-'}</td>
+                    <td class="px-4 py-2 border-r border-gray-50">
+                      <div class="font-bold text-indigo-900">${item.namaPeserta}</div>
+                      <div class="text-[10px] text-gray-400 font-mono">${item.sap}</div>
+                    </td>
+                    <td class="px-4 py-2 text-center font-black text-blue-600 bg-blue-50 border-r border-gray-50">${formatScore(item.nilaiEvaluasi)}</td>
+                    <td class="px-4 py-2 text-gray-700 border-r border-gray-50">${item.keyBehaviour || '-'}</td>
+                    <td class="px-4 py-2 text-gray-500 border-r border-gray-50">${item.tanggalEval || '-'}</td>
+                    <td class="px-4 py-2 text-gray-500 italic truncate max-w-[150px] border-r border-gray-50">${item.ket || '-'}</td>
+                    <td class="px-4 py-2 text-center">
+                      <div class="flex justify-center gap-2">
+                        <button onclick='openEvaluasiL3Modal("edit", "${item.id}")' class="text-blue-600 hover:text-blue-800 p-1.5 hover:bg-blue-50 rounded-lg transition-colors" title="Edit">
+                          <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
+                        </button>
+                        <button onclick="deleteEvaluasiL3('${item.id}')" class="text-red-500 hover:text-red-700 p-1.5 hover:bg-red-50 rounded-lg transition-colors" title="Hapus">
+                          <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
+
+    function filterL3Data(query) {
+        const lower = query.toLowerCase();
+        const filtered = FILTERED_L3.filter(item =>
+            (item.judulPelatihan && item.judulPelatihan.toLowerCase().includes(lower)) ||
+            (item.namaPeserta && item.namaPeserta.toLowerCase().includes(lower)) ||
+            (item.keyBehaviour && item.keyBehaviour.toLowerCase().includes(lower))
+        );
+        displayL3Data(filtered);
+    }
+
+    function openEvaluasiL3Modal(mode, itemId) {
+        const modal = document.getElementById('evaluasi-l3-modal');
+        const form = document.getElementById('evaluasiL3Form');
+        document.getElementById('l3-mode').value = mode;
+        document.getElementById('evaluasi-l3-modal-title').innerText = mode === 'add' ? 'Tambah Evaluasi L3 (Behavior)' : 'Edit Evaluasi L3';
+
+        const select = document.getElementById('l3-pelaksanaanId');
+        select.innerHTML = '<option value="">-- Pilih Pelaksanaan --</option>';
+        const pelaksanaans = DATA_REAL.filter(p => String(p.tahun) === String(ACTIVE_EVALUASI_YEAR));
+        pelaksanaans.forEach(p => {
+            const opt = document.createElement('option');
+            opt.value = p.id;
+            opt.innerText = `${p.judulPelatihan} (SAP: ${p.sapEvent || p.sap})`;
+            opt.dataset.judul = p.judulPelatihan;
+            opt.dataset.sap = p.sapEvent || p.sap;
+            opt.dataset.nama = p.namaKaryawan || p.nama || '';
+            select.appendChild(opt);
+        });
+
+        if (mode === 'edit' && itemId) {
+            const item = DATA_L3.find(i => String(i.id) === String(itemId));
+            if (!item) return;
+            document.getElementById('l3-id').value = item.id;
+            select.value = item.pelaksanaanId;
+            document.getElementById('l3-judul').value = item.judulPelatihan;
+            document.getElementById('l3-sap').value = item.sap;
+            document.getElementById('l3-nama').value = item.namaPeserta;
+            document.getElementById('l3-nilaiEvaluasi').value = item.nilaiEvaluasi;
+            document.getElementById('l3-ket').value = item.ket;
+            document.getElementById('l3-keyBehaviour').value = item.keyBehaviour;
+            document.getElementById('l3-tanggalEval').value = item.tanggalEval;
+        } else {
+            form.reset();
+            document.getElementById('l3-mode').value = 'add';
+        }
+        modal.classList.remove('hidden');
+    }
+
+    function closeEvaluasiL3Modal() {
+        document.getElementById('evaluasi-l3-modal').classList.add('hidden');
+    }
+
+    function autoFillL3Peserta() {
+        const select = document.getElementById('l3-pelaksanaanId');
+        const opt = select.selectedOptions[0];
+        if (opt && opt.value) {
+            document.getElementById('l3-judul').value = opt.dataset.judul || '';
+            document.getElementById('l3-sap').value = opt.dataset.sap || '';
+            document.getElementById('l3-nama').value = opt.dataset.nama || '';
+        }
+    }
+
+    function saveEvaluasiL3(e) {
+        e.preventDefault();
+        const btn = document.getElementById('btn-save-l3');
+        const originalText = btn.innerText;
+        btn.disabled = true;
+        btn.innerText = 'Menyimpan...';
+
+        const mode = document.getElementById('l3-mode').value;
+        const formData = {
+            id: document.getElementById('l3-id').value,
+            pelaksanaanId: document.getElementById('l3-pelaksanaanId').value,
+            judulPelatihan: document.getElementById('l3-judul').value,
+            sap: document.getElementById('l3-sap').value,
+            namaPeserta: document.getElementById('l3-nama').value,
+            nilaiEvaluasi: document.getElementById('l3-nilaiEvaluasi').value,
+            ket: document.getElementById('l3-ket').value,
+            keyBehaviour: document.getElementById('l3-keyBehaviour').value,
+            tanggalEval: document.getElementById('l3-tanggalEval').value
+        };
+
+        const handler = function (response) {
+            btn.disabled = false;
+            btn.innerText = originalText;
+            if (response.success) {
+                notifySuccess('Data Evaluasi L3 berhasil disimpan!');
+                DATA_L3 = response.data;
+                enrichL3Data();
+                renderL3List();
+                closeEvaluasiL3Modal();
+            } else {
+                alert('Error: ' + response.error);
+            }
+        };
+
+        const token = localStorage.getItem('sessionToken');
+        if (mode === 'add') {
+            google.script.run.withSuccessHandler(handler).withFailureHandler(handler).addEvaluasiL3(token, formData);
+        } else {
+            google.script.run.withSuccessHandler(handler).withFailureHandler(handler).updateEvaluasiL3(token, formData);
+        }
+    }
+
+    function deleteEvaluasiL3(id) {
+        if (!confirm('Hapus data evaluasi L3 ini?')) return;
+        const token = localStorage.getItem('sessionToken');
+        google.script.run.withSuccessHandler(function (response) {
+            if (response.success) {
+                alert('Data terhapus!');
+                DATA_L3 = response.data;
+                enrichL3Data();
+                renderL3List();
+            } else {
+                alert('Gagal hapus: ' + response.error);
+            }
+        }).withFailureHandler(alert).deleteEvaluasiL3(token, id);
+    }
+
+    /* --- L1 LIST & FILTER --- */
+    function renderL1List() {
+        // Filter by Year
+        let filtered = DATA_L1.filter(item => String(item.tahun) === String(ACTIVE_EVALUASI_YEAR));
+        FILTERED_L1 = filtered; // Base for search
+
+        const searchInput = document.querySelector('input[onkeyup="filterL1Data(this.value)"]');
+        if (searchInput && searchInput.value) {
+            filterL1Data(searchInput.value); // Re-apply search
+        } else {
+            displayL1Data(filtered);
+        }
+    }
+
+    /* --- L1 MODAL & CRUD --- */
+    function openEvaluasiL1Modal(mode, itemId) {
+        const modal = document.getElementById('evaluasi-l1-modal');
+        const form = document.getElementById('evaluasiL1Form');
+        document.getElementById('l1-mode').value = mode;
+        document.getElementById('evaluasi-l1-modal-title').innerText = mode === 'add' ? 'Tambah Evaluasi L1' : 'Edit Evaluasi L1';
+
+        // Select Pelaksanaan Dropdown
+        const select = document.getElementById('l1-pelaksanaanId');
+        select.innerHTML = '<option value="">-- Pilih Pelaksanaan --</option>';
+
+        // Filter Pelaksanaan by Active Year!
+        const pelaksanaans = DATA_REAL.filter(p => String(p.tahun) === String(ACTIVE_EVALUASI_YEAR));
+        pelaksanaans.forEach(p => {
+            const opt = document.createElement('option');
+            opt.value = p.id;
+            opt.innerText = `${p.judulPelatihan} (SAP: ${p.sapEvent || p.sap})`;
+            opt.dataset.judul = p.judulPelatihan;
+            opt.dataset.sap = p.sapEvent || p.sap;
+            opt.dataset.nama = p.namaKaryawan || p.nama || '';
+            select.appendChild(opt);
+        });
+
+        if (mode === 'edit' && itemId) {
+            // Find item by ID
+            const item = DATA_L1.find(i => String(i.id) === String(itemId));
+            if (!item) {
+                alert('Data not found!');
+                return;
+            }
+
+            document.getElementById('l1-id').value = item.id;
+            // Set fields
+            select.value = item.pelaksanaanId;
+
+            document.getElementById('l1-sap').value = item.sap;
+            document.getElementById('l1-nama').value = item.namaPeserta;
+            document.getElementById('l1-judul').value = item.judulPelatihan;
+
+            // Fill all 21 fields
+            document.getElementById('l1-tempat').value = item.tempatPembelajaran || '';
+            document.getElementById('l1-fasilitas').value = item.fasilitasMedia || '';
+            document.getElementById('l1-pelayanan').value = item.pelayananUmum || '';
+            document.getElementById('l1-rataPenyelenggaraan').value = item.ratapenyelenggaraan || '';
+
+            document.getElementById('l1-materi').value = item.materi || '';
+            document.getElementById('l1-tujuan').value = item.tujuanTercapai || '';
+            document.getElementById('l1-penyajian').value = item.penyajian || '';
+            document.getElementById('l1-disiplin').value = item.disiplin || '';
+            document.getElementById('l1-rataPembelajaran').value = item.rataPembelajaran || '';
+
+            document.getElementById('l1-pengetahuan').value = item.pengetahuan || '';
+            document.getElementById('l1-presentasi').value = item.presentasi || '';
+            document.getElementById('l1-perilaku').value = item.perilaku || '';
+            document.getElementById('l1-waktu').value = item.waktu || '';
+            document.getElementById('l1-rataInstruktur').value = item.rataInstruktur || '';
+
+            document.getElementById('l1-rataKeseluruhan').value = item.rataKeseluruhan || '';
+            document.getElementById('l1-komentar').value = item.komentarPeserta || '';
+        } else {
+            form.reset();
+            document.getElementById('l1-mode').value = 'add';
+        }
+
+        modal.classList.remove('hidden');
+    }
+
+    function closeEvaluasiL1Modal() {
+        document.getElementById('evaluasi-l1-modal').classList.add('hidden');
+    }
+
+    function autoFillL1Peserta() {
+        const select = document.getElementById('l1-pelaksanaanId');
+        const opt = select.selectedOptions[0];
+        if (opt && opt.value) {
+            document.getElementById('l1-judul').value = opt.dataset.judul || '';
+            document.getElementById('l1-sap').value = opt.dataset.sap || ''; // Use realization SAP
+            document.getElementById('l1-nama').value = opt.dataset.nama || '';
+        }
+    }
+
+    function saveEvaluasiL1(e) {
+        e.preventDefault();
+        const btn = document.getElementById('btn-save-l1');
+        const originalText = btn.innerText;
+        btn.disabled = true;
+        btn.innerText = 'Menyimpan...';
+
+        const mode = document.getElementById('l1-mode').value;
+        const formData = {
+            id: document.getElementById('l1-id').value,
+            pelaksanaanId: document.getElementById('l1-pelaksanaanId').value,
+            judulPelatihan: document.getElementById('l1-judul').value,
+            sap: document.getElementById('l1-sap').value,
+            namaPeserta: document.getElementById('l1-nama').value,
+
+            tempatPembelajaran: document.getElementById('l1-tempat').value,
+            fasilitasMedia: document.getElementById('l1-fasilitas').value,
+            pelayananUmum: document.getElementById('l1-pelayanan').value,
+            ratapenyelenggaraan: document.getElementById('l1-rataPenyelenggaraan').value,
+
+            materi: document.getElementById('l1-materi').value,
+            tujuanTercapai: document.getElementById('l1-tujuan').value,
+            penyajian: document.getElementById('l1-penyajian').value,
+            disiplin: document.getElementById('l1-disiplin').value,
+            rataPembelajaran: document.getElementById('l1-rataPembelajaran').value,
+
+            pengetahuan: document.getElementById('l1-pengetahuan').value,
+            presentasi: document.getElementById('l1-presentasi').value,
+            perilaku: document.getElementById('l1-perilaku').value,
+            waktu: document.getElementById('l1-waktu').value,
+            rataInstruktur: document.getElementById('l1-rataInstruktur').value,
+
+            rataKeseluruhan: document.getElementById('l1-rataKeseluruhan').value,
+            komentarPeserta: document.getElementById('l1-komentar').value
+        };
+
+        const handler = function (response) {
+            btn.disabled = false;
+            btn.innerText = originalText;
+            if (response.success) {
+                alert('Data Evaluasi L1 berhasil disimpan!');
+                DATA_L1 = response.data;
+                enrichL1Data(); // Re-enrich
+                renderL1List();
+                closeEvaluasiL1Modal();
+            } else {
+                alert('Error: ' + response.error);
+            }
+        };
+
+        const token = localStorage.getItem('sessionToken');
+        if (mode === 'add') {
+            google.script.run.withSuccessHandler(handler).withFailureHandler(handler).addEvaluasiL1(token, formData);
+        } else {
+            google.script.run.withSuccessHandler(handler).withFailureHandler(handler).updateEvaluasiL1(token, formData);
+        }
+    }
+
+    function deleteEvaluasiL1(id) {
+        if (!confirm('Hapus data evaluasi ini?')) return;
+        const token = localStorage.getItem('sessionToken');
+        google.script.run.withSuccessHandler(function (response) {
+            if (response.success) {
+                alert('Data terhapus!');
+                DATA_L1 = response.data;
+                enrichL1Data(); // Re-enrich
+                renderL1List();
+            } else {
+                alert('Gagal hapus: ' + response.error);
+            }
+        }).withFailureHandler(alert).deleteEvaluasiL1(token, id);
+    }
+
+
+
+
+    function filterL1Data(query) {
+        const lower = query.toLowerCase();
+        const filtered = FILTERED_L1.filter(item =>
+            (item.judulPelatihan && item.judulPelatihan.toLowerCase().includes(lower)) ||
+            (item.namaPeserta && item.namaPeserta.toLowerCase().includes(lower)) ||
+            (item.sap && String(item.sap).toLowerCase().includes(lower))
+        );
+        displayL1Data(filtered);
+    }
+
+    function displayL1Data(data) {
+        const inner = document.getElementById('l1-list-container');
+        if (!inner) return;
+
+        if (data.length === 0) {
+            inner.innerHTML = '<div class="text-center py-10 text-gray-500 bg-gray-50 rounded-xl border border-dashed border-gray-300">Tidak ada data evaluasi L1 untuk kriteria pencarian ini.</div>';
+            return;
+        }
+
+        inner.innerHTML = `
+        <div class="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+          <div class="overflow-x-auto">
+            <table class="w-full text-xs text-left whitespace-nowrap">
+              <thead class="bg-gray-50 text-gray-500 font-bold border-b uppercase">
+                <tr>
+                  <th class="px-4 py-3 w-10">NO</th>
+                  <th class="px-4 py-3">ITEM ID</th>
+                  <th class="px-4 py-3">JUDUL PELATIHAN</th>
+                  <th class="px-4 py-3">NAMA PESERTA (SAP)</th>
+                  <th class="px-4 py-3 text-center">RATA PENYELENGGARAAN</th>
+                  <th class="px-4 py-3 text-center">RATA PEMBELAJARAN</th>
+                  <th class="px-4 py-3 text-center">RATA INSTRUKTUR</th>
+                  <th class="px-4 py-3 text-center font-bold">L1 SCORE</th>
+                  <th class="px-4 py-3 text-center">ACTIONS</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100">
+                ${data.map((item, i) => `
+                  <tr class="hover:bg-indigo-50 transition-colors">
+                    <td class="px-4 py-2 text-center text-gray-500 font-medium border-r border-gray-50">${i + 1}</td>
+                    <td class="px-4 py-2 text-[10px] font-mono text-emerald-600 font-bold border-r border-gray-50">${item.itemId || '-'}</td>
+                    <td class="px-4 py-2 font-bold text-gray-900 border-r border-gray-50">${item.judulPelatihan || '-'}</td>
+                    <td class="px-4 py-2 border-r border-gray-50">
+                      <div class="font-bold text-indigo-900">${item.namaPeserta}</div>
+                      <div class="text-[10px] text-gray-400 font-mono">${item.sap}</div>
+                    </td>
+                    <td class="px-4 py-2 text-center font-semibold text-blue-600 border-r border-gray-50">${formatScore(item.rataPenyelenggaraan)}</td>
+                    <td class="px-4 py-2 text-center font-semibold text-emerald-600 border-r border-gray-50">${formatScore(item.rataPembelajaran)}</td>
+                    <td class="px-4 py-2 text-center font-semibold text-purple-600 border-r border-gray-50">${formatScore(item.rataInstruktur)}</td>
+                    <td class="px-4 py-2 text-center font-black text-indigo-700 bg-indigo-50 border-r border-gray-50">${formatScore(item.rataKeseluruhan)}</td>
+                    <td class="px-4 py-2 text-center">
+                      <div class="flex justify-center gap-2">
+                        <button onclick='openEvaluasiL1Modal("edit", "${item.id}")' class="text-blue-600 hover:text-blue-800 p-1.5 hover:bg-blue-50 rounded-lg transition-colors" title="Edit">
+                          <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
+                        </button>
+                        <button onclick="deleteEvaluasiL1('${item.id}')" class="text-red-500 hover:text-red-700 p-1.5 hover:bg-red-50 rounded-lg transition-colors" title="Hapus">
+                          <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
+
+    /* --- L2 EVALUATION LOGIC --- */
+
+    function onL2Loaded(data) {
+        console.log('✅ L2 Loaded:', (data || []).length);
+        DATA_L2 = data || [];
+        enrichL2Data();
+        if (!document.getElementById('page-evaluasi').classList.contains('hidden')) {
+            if (ACTIVE_EVALUASI_YEAR) renderL2List();
+        }
+        _tryUpdateDashboard();
+    }
+
+
+
+    function renderL2List() {
+        let filtered = DATA_L2.filter(item => String(item.tahun) === String(ACTIVE_EVALUASI_YEAR));
+        FILTERED_L2 = filtered;
+        displayL2Data(filtered);
+    }
+
+    function displayL2Data(data) {
+        const inner = document.getElementById('l2-list-container');
+        if (!inner) return;
+
+        if (data.length === 0) {
+            inner.innerHTML = '<div class="text-center py-10 text-gray-500 bg-gray-50 rounded-xl border border-dashed border-gray-300">Tidak ada data evaluasi L2 untuk kriteria pencarian ini.</div>';
+            return;
+        }
+
+        inner.innerHTML = `
+        <div class="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+          <div class="overflow-x-auto">
+            <table class="w-full text-xs text-left whitespace-nowrap">
+              <thead class="bg-gray-50 text-gray-500 font-bold border-b uppercase">
+                <tr>
+                  <th class="px-4 py-3 w-10">NO</th>
+                  <th class="px-4 py-3">ITEM ID</th>
+                  <th class="px-4 py-3">JUDUL PELATIHAN</th>
+                  <th class="px-4 py-3">NAMA PESERTA (SAP)</th>
+                  <th class="px-4 py-3 text-center">PRE-TEST</th>
+                  <th class="px-4 py-3 text-center">POST-TEST</th>
+                  <th class="px-4 py-3 text-center font-bold">INCREASE</th>
+                  <th class="px-4 py-3">KETERANGAN</th>
+                  <th class="px-4 py-3 text-center">ACTIONS</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-gray-100">
+                ${data.map((item, i) => {
+            const increase = parseFloat(item.increase) || 0;
+            const deltaColor = increase > 0 ? 'text-green-600' : (increase < 0 ? 'text-red-600' : 'text-gray-600');
+            return `
+                  <tr class="hover:bg-indigo-50 transition-colors">
+                    <td class="px-4 py-2 text-center text-gray-500 font-medium border-r border-gray-50">${i + 1}</td>
+                    <td class="px-4 py-2 text-[10px] font-mono text-emerald-600 font-bold border-r border-gray-50">${item.itemId || '-'}</td>
+                    <td class="px-4 py-2 font-bold text-gray-900 border-r border-gray-50">${item.judulPelatihan || '-'}</td>
+                    <td class="px-4 py-2 border-r border-gray-50">
+                      <div class="font-bold text-indigo-900">${item.namaPeserta}</div>
+                      <div class="text-[10px] text-gray-400 font-mono">${item.sap}</div>
+                    </td>
+                    <td class="px-4 py-2 text-center font-mono text-gray-600 border-r border-gray-50">${formatScore(item.preTest)}</td>
+                    <td class="px-4 py-2 text-center font-bold text-indigo-600 border-r border-gray-50">${formatScore(item.postTest)}</td>
+                    <td class="px-4 py-2 text-center font-black ${deltaColor} lg:bg-gray-50 border-r border-gray-50">${Math.round(increase)}%</td>
+                    <td class="px-4 py-2 text-gray-500 italic truncate max-w-[200px] border-r border-gray-50">${item.ket || '-'}</td>
+                    <td class="px-4 py-2 text-center">
+                      <div class="flex justify-center gap-2">
+                        <button onclick='openEvaluasiL2Modal("edit", "${item.id}")' class="text-blue-600 hover:text-blue-800 p-1.5 hover:bg-blue-50 rounded-lg transition-colors" title="Edit">
+                          <i data-lucide="pencil" class="w-3.5 h-3.5"></i>
+                        </button>
+                        <button onclick="deleteEvaluasiL2('${item.id}')" class="text-red-500 hover:text-red-700 p-1.5 hover:bg-red-50 rounded-lg transition-colors" title="Hapus">
+                          <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                `;
+        }).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
+
+    function filterL2Data(query) {
+        const lower = query.toLowerCase();
+        const filtered = FILTERED_L2.filter(item =>
+            (item.judulPelatihan && item.judulPelatihan.toLowerCase().includes(lower)) ||
+            (item.namaPeserta && item.namaPeserta.toLowerCase().includes(lower))
+        );
+        displayL2Data(filtered);
+    }
+
+    function openEvaluasiL2Modal(mode, itemId) {
+        const modal = document.getElementById('evaluasi-l2-modal');
+        const form = document.getElementById('evaluasiL2Form');
+        document.getElementById('l2-mode').value = mode;
+        document.getElementById('evaluasi-l2-modal-title').innerText = mode === 'add' ? 'Tambah Evaluasi L2 (Learning)' : 'Edit Evaluasi L2';
+
+        const select = document.getElementById('l2-pelaksanaanId');
+        select.innerHTML = '<option value="">-- Pilih Pelaksanaan --</option>';
+        const pelaksanaans = DATA_REAL.filter(p => String(p.tahun) === String(ACTIVE_EVALUASI_YEAR));
+        pelaksanaans.forEach(p => {
+            const opt = document.createElement('option');
+            opt.value = p.id;
+            opt.innerText = `${p.judulPelatihan} (SAP: ${p.sapEvent || p.sap})`;
+            opt.dataset.judul = p.judulPelatihan;
+            opt.dataset.sap = p.sapEvent || p.sap;
+            opt.dataset.nama = p.namaKaryawan || p.nama || '';
+            select.appendChild(opt);
+        });
+
+        if (mode === 'edit' && itemId) {
+            const item = DATA_L2.find(i => String(i.id) === String(itemId));
+            if (!item) return;
+            document.getElementById('l2-id').value = item.id;
+            select.value = item.pelaksanaanId;
+            document.getElementById('l2-judul').value = item.judulPelatihan;
+            document.getElementById('l2-sap').value = item.sap;
+            document.getElementById('l2-nama').value = item.namaPeserta;
+            document.getElementById('l2-preTest').value = item.preTest;
+            document.getElementById('l2-postTest').value = item.postTest;
+            document.getElementById('l2-ket').value = item.ket;
+        } else {
+            form.reset();
+            document.getElementById('l2-mode').value = 'add';
+        }
+        modal.classList.remove('hidden');
+    }
+
+    function closeEvaluasiL2Modal() {
+        document.getElementById('evaluasi-l2-modal').classList.add('hidden');
+    }
+
+    function autoFillL2Peserta() {
+        const select = document.getElementById('l2-pelaksanaanId');
+        const opt = select.selectedOptions[0];
+        if (opt && opt.value) {
+            document.getElementById('l2-judul').value = opt.dataset.judul || '';
+            document.getElementById('l2-sap').value = opt.dataset.sap || '';
+            document.getElementById('l2-nama').value = opt.dataset.nama || '';
+        }
+    }
+
+    function saveEvaluasiL2(e) {
+        e.preventDefault();
+        const btn = document.getElementById('btn-save-l2');
+        const originalText = btn.innerText;
+        btn.disabled = true;
+        btn.innerText = 'Menyimpan...';
+
+        const mode = document.getElementById('l2-mode').value;
+        const formData = {
+            id: document.getElementById('l2-id').value,
+            pelaksanaanId: document.getElementById('l2-pelaksanaanId').value,
+            judulPelatihan: document.getElementById('l2-judul').value,
+            sap: document.getElementById('l2-sap').value,
+            namaPeserta: document.getElementById('l2-nama').value,
+            preTest: document.getElementById('l2-preTest').value,
+            postTest: document.getElementById('l2-postTest').value,
+            ket: document.getElementById('l2-ket').value
+        };
+
+        const handler = function (response) {
+            btn.disabled = false;
+            btn.innerText = originalText;
+            if (response.success) {
+                alert('Data Evaluasi L2 berhasil disimpan!');
+                DATA_L2 = response.data;
+                enrichL2Data();
+                renderL2List();
+                closeEvaluasiL2Modal();
+            } else {
+                alert('Error: ' + response.error);
+            }
+        };
+
+        const token = localStorage.getItem('sessionToken');
+        if (mode === 'add') {
+            google.script.run.withSuccessHandler(handler).withFailureHandler(handler).addEvaluasiL2(token, formData);
+        } else {
+            google.script.run.withSuccessHandler(handler).withFailureHandler(handler).updateEvaluasiL2(token, formData);
+        }
+    }
+
+    function deleteEvaluasiL2(id) {
+        if (!confirm('Hapus data evaluasi L2 ini?')) return;
+        const token = localStorage.getItem('sessionToken');
+        google.script.run.withSuccessHandler(function (response) {
+            if (response.success) {
+                alert('Data terhapus!');
+                DATA_L2 = response.data;
+                enrichL2Data();
+                renderL2List();
+            } else {
+                alert('Gagal hapus: ' + response.error);
+            }
+        }).withFailureHandler(alert).deleteEvaluasiL2(token, id);
+    }
+
+    /* ─────────────────────────────────────────────────────────────────────────────
+    * ANALISIS PAGE LOGIC
+    * ───────────────────────────────────────────────────────────────────────────── */
+    let _charts = {}; // Simpan instance chart agar bisa di-destroy
+
+    function renderAnalisis() {
+        // Destroy existing charts sebelum re-render
+        Object.values(_charts).forEach(c => { try { c.destroy(); } catch (e) { } });
+        _charts = {};
+
+        _renderTrenPelaksanaan();
+        _renderDistribusiDept();
+        _renderPlanVsReal();
+        _renderSkorL1();
+        _renderSkorL2();
+        _renderSkorL3();
+    }
+
+    // Chart 1: Tren Pelaksanaan per Tahun (bar chart)
+    function _renderTrenPelaksanaan() {
+        const byYear = {};
+        (DATA_REAL || []).forEach(item => {
+            const yr = String(item.tahun || '').trim() || 'Lainnya';
+            byYear[yr] = (byYear[yr] || 0) + 1;
+        });
+        const labels = Object.keys(byYear).sort();
+        const values = labels.map(y => byYear[y]);
+
+        const ctx = document.getElementById('chart-tren-pelaksanaan');
+        if (!ctx) return;
+        _charts.tren = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels,
+                datasets: [{
+                    label: 'Jumlah Peserta',
+                    data: values,
+                    backgroundColor: 'rgba(16, 185, 129, 0.7)',
+                    borderColor: 'rgba(5, 150, 105, 1)',
+                    borderWidth: 1.5,
+                    borderRadius: 6,
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { beginAtZero: true, ticks: { precision: 0 }, grid: { color: 'rgba(0,0,0,0.04)' } },
+                    x: { grid: { display: false } }
+                }
+            }
+        });
+    }
+
+    // Chart 2: Distribusi Departemen (doughnut)
+    function _renderDistribusiDept() {
+        const byDept = {};
+        (DATA_REAL || []).forEach(item => {
+            const d = (item.departemen || 'Lainnya').trim();
+            byDept[d] = (byDept[d] || 0) + 1;
+        });
+        // Sort & ambil top 8
+        const sorted = Object.entries(byDept).sort((a, b) => b[1] - a[1]).slice(0, 8);
+        const labels = sorted.map(e => e[0]);
+        const values = sorted.map(e => e[1]);
+        const colors = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#14b8a6', '#f97316', '#ec4899'];
+
+        const ctx = document.getElementById('chart-distribusi-dept');
+        if (!ctx) return;
+        _charts.dept = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels,
+                datasets: [{ data: values, backgroundColor: colors, borderWidth: 1.5 }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'right', labels: { font: { size: 10 }, boxWidth: 12, padding: 8 } }
+                },
+                cutout: '62%'
+            }
+        });
+    }
+
+    // Chart 3: Perencanaan vs Realisasi per Tahun (grouped bar)
+    function _renderPlanVsReal() {
+        const allYears = new Set();
+        const planByYear = {}, realByYear = {};
+
+        [...(DATA_CERT || []), ...(DATA_LAT || [])].forEach(item => {
+            const val = String(item.periode || '');
+            const m = val.match(/20\d{2}/);
+            if (m) {
+                const yr = m[0];
+                allYears.add(yr);
+                planByYear[yr] = (planByYear[yr] || 0) + 1;
+            }
+        });
+        (DATA_REAL || []).forEach(item => {
+            const yr = String(item.tahun || '').trim();
+            if (yr && yr.match(/^20\d{2}$/)) {
+                allYears.add(yr);
+                realByYear[yr] = (realByYear[yr] || 0) + 1;
+            }
+        });
+
+        const labels = Array.from(allYears).sort();
+        const ctx = document.getElementById('chart-plan-vs-real');
+        if (!ctx) return;
+        _charts.planReal = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels,
+                datasets: [
+                    {
+                        label: 'Perencanaan',
+                        data: labels.map(y => planByYear[y] || 0),
+                        backgroundColor: 'rgba(99, 102, 241, 0.7)',
+                        borderColor: 'rgba(79, 70, 229, 1)',
+                        borderWidth: 1.5, borderRadius: 5,
+                        yAxisID: 'y1',
+                    },
+                    {
+                        label: 'Realisasi',
+                        data: labels.map(y => realByYear[y] || 0),
+                        backgroundColor: 'rgba(20, 184, 166, 0.7)',
+                        borderColor: 'rgba(13, 148, 136, 1)',
+                        borderWidth: 1.5, borderRadius: 5,
+                        yAxisID: 'y',
+                    }
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: {
+                    legend: { labels: { font: { size: 11 } } },
+                    tooltip: {
+                        callbacks: {
+                            label: function (context) {
+                                let label = context.dataset.label || '';
+                                if (label) label += ': ';
+                                if (context.parsed.y !== null) {
+                                    label += context.parsed.y + (context.datasetIndex === 0 ? ' Pelatihan' : ' Peserta');
+                                }
+                                return label;
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        type: 'linear',
+                        display: true,
+                        position: 'left',
+                        beginAtZero: true,
+                        ticks: { precision: 0, color: '#14b8a6' },
+                        grid: { color: 'rgba(0,0,0,0.04)' },
+                        title: { display: true, text: 'Jumlah Peserta (Realisasi)', font: { size: 10 } }
+                    },
+                    y1: {
+                        type: 'linear',
+                        display: true,
+                        position: 'right',
+                        beginAtZero: true,
+                        ticks: { precision: 0, color: '#6366f1' },
+                        grid: { drawOnChartArea: false },
+                        title: { display: true, text: 'Jumlah Pelatihan (Rencana)', font: { size: 10 } }
+                    },
+                    x: { grid: { display: false } }
+                }
+            }
+        });
+    }
+
+    // Chart 4: Rata-rata Skor Evaluasi L1 per Tahun (bar chart)
+    function _renderSkorL1() {
+        const byYear = {};
+        (DATA_L1 || []).forEach(item => {
+            const yr = String(item.tahun || '').trim() || 'Lainnya';
+            const score = parseFloat(String(item.rataKeseluruhan || '').replace(',', '.'));
+            if (!isNaN(score)) {
+                if (!byYear[yr]) byYear[yr] = { total: 0, count: 0 };
+                byYear[yr].total += score;
+                byYear[yr].count++;
+            }
+        });
+        const labels = Object.keys(byYear).sort();
+        const values = labels.map(y => byYear[y].count > 0 ? (byYear[y].total / byYear[y].count).toFixed(2) : 0);
+
+        const ctx = document.getElementById('chart-skor-l1');
+        if (!ctx) return;
+        _charts.skorL1 = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels.length > 0 ? labels : ['Belum ada data'],
+                datasets: [{
+                    label: 'Rata-rata Skor L1',
+                    data: values.length > 0 ? values : [0],
+                    backgroundColor: 'rgba(139, 92, 246, 0.7)',
+                    borderColor: 'rgba(109, 40, 217, 1)',
+                    borderWidth: 1.5, borderRadius: 6,
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { beginAtZero: true, max: 5, ticks: { stepSize: 1 }, grid: { color: 'rgba(0,0,0,0.04)' } },
+                    x: { grid: { display: false } }
+                }
+            }
+        });
+    }
+
+    // Chart 5: Rata-rata Pre vs Post Test L2 per Tahun (Grouped Bar Chart)
+    function _renderSkorL2() {
+        const byYear = {};
+        (DATA_L2 || []).forEach(item => {
+            const yr = String(item.tahun || '').trim() || 'Lainnya';
+            const pre = parseFloat(String(item.preTest || '0').replace(',', '.'));
+            const post = parseFloat(String(item.postTest || '0').replace(',', '.'));
+
+            if (!isNaN(pre) || !isNaN(post)) {
+                if (!byYear[yr]) byYear[yr] = { preTotal: 0, postTotal: 0, count: 0 };
+                byYear[yr].preTotal += isNaN(pre) ? 0 : pre;
+                byYear[yr].postTotal += isNaN(post) ? 0 : post;
+                byYear[yr].count++;
+            }
+        });
+
+        const labels = Object.keys(byYear).sort();
+        const preValues = labels.map(y => byYear[y].count > 0 ? (byYear[y].preTotal / byYear[y].count).toFixed(2) : 0);
+        const postValues = labels.map(y => byYear[y].count > 0 ? (byYear[y].postTotal / byYear[y].count).toFixed(2) : 0);
+
+        const ctx = document.getElementById('chart-skor-l2');
+        if (!ctx) return;
+        _charts.skorL2 = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: labels.length > 0 ? labels : ['Belum ada data'],
+                datasets: [
+                    {
+                        label: 'Pre-Test',
+                        data: preValues.length > 0 ? preValues : [0],
+                        backgroundColor: 'rgba(156, 163, 175, 0.7)', // Gray 400
+                        borderColor: 'rgba(107, 114, 128, 1)',     // Gray 500
+                        borderWidth: 1.5, borderRadius: 5,
+                    },
+                    {
+                        label: 'Post-Test',
+                        data: postValues.length > 0 ? postValues : [0],
+                        backgroundColor: 'rgba(59, 130, 246, 0.7)',  // Blue 500
+                        borderColor: 'rgba(37, 99, 235, 1)',       // Blue 600
+                        borderWidth: 1.5, borderRadius: 5,
+                    }
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { labels: { font: { size: 11 } } } },
+                scales: {
+                    y: { beginAtZero: true, max: 100, ticks: { stepSize: 20 }, grid: { color: 'rgba(0,0,0,0.04)' } },
+                    x: { grid: { display: false } }
+                }
+            }
+        });
+    }
+
+    // Chart 6: Nilai Evaluasi L3 per Tahun (Line Chart)
+    function _renderSkorL3() {
+        const byYear = {};
+        (DATA_L3 || []).forEach(item => {
+            const yr = String(item.tahun || '').trim() || 'Lainnya';
+            const score = parseFloat(String(item.nilaiEvaluasi || '').replace(',', '.'));
+            if (!isNaN(score)) {
+                if (!byYear[yr]) byYear[yr] = { total: 0, count: 0 };
+                byYear[yr].total += score;
+                byYear[yr].count++;
+            }
+        });
+        const labels = Object.keys(byYear).sort();
+        const values = labels.map(y => byYear[y].count > 0 ? (byYear[y].total / byYear[y].count).toFixed(2) : 0);
+
+        const ctx = document.getElementById('chart-skor-l3');
+        if (!ctx) return;
+        _charts.skorL3 = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels.length > 0 ? labels : ['Belum ada data'],
+                datasets: [{
+                    label: 'Rata-rata Skor L3',
+                    data: values.length > 0 ? values : [0],
+                    backgroundColor: 'rgba(249, 115, 22, 0.2)', // Orange 500
+                    borderColor: 'rgba(234, 88, 12, 1)',      // Orange 600
+                    borderWidth: 3,
+                    pointBackgroundColor: 'white',
+                    pointBorderColor: 'rgba(234, 88, 12, 1)',
+                    pointBorderWidth: 2,
+                    pointRadius: 5,
+                    pointHoverRadius: 7,
+                    fill: true,
+                    tension: 0.3 // makes line slightly curved
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    y: { beginAtZero: true, max: 100, ticks: { stepSize: 20 }, grid: { color: 'rgba(0,0,0,0.04)' } },
+                    x: { grid: { display: false } }
+                }
+            }
+        });
+    }
+
+    /* ─────────────────────────────────────────────────────────────────────────────
+     * LAPORAN PAGE LOGIC
+     * ───────────────────────────────────────────────────────────────────────────── */
+    function renderLaporan() {
+        // Initialize year dropdown for Matriks
+        const yearSelect = document.getElementById('lap-matriks-year');
+        if (yearSelect && yearSelect.options.length <= 1) {
+            const years = new Set();
+            (DATA_REAL || []).forEach(r => { if (r.tahun) years.add(r.tahun); });
+            Array.from(years).sort().reverse().forEach(y => {
+                const opt = document.createElement('option');
+                opt.value = y; opt.innerText = y;
+                yearSelect.appendChild(opt);
+            });
+        }
+
+        switchLaporanTab('rekap');
+    }
+
+    function switchLaporanTab(tabId) {
+        // Hide all tabs
+        document.querySelectorAll('.laporan-tab-content').forEach(el => el.classList.add('hidden'));
+
+        // Reset tab buttons
+        ['rekap', 'matriks', 'ekspor'].forEach(t => {
+            const btn = document.getElementById(`tab-lap-${t}`);
+            if (btn) {
+                btn.className = "px-5 py-2.5 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-indigo-600 focus:outline-none transition-colors";
+            }
+        });
+
+        // Show active tab
+        const activeContent = document.getElementById(`lap-content-${tabId}`);
+        if (activeContent) activeContent.classList.remove('hidden');
+
+        // Style active button
+        const activeBtn = document.getElementById(`tab-lap-${tabId}`);
+        if (activeBtn) {
+            activeBtn.className = "px-5 py-2.5 text-sm font-bold border-b-2 border-indigo-600 text-indigo-700 focus:outline-none transition-colors";
+        }
+
+        // Auto render if matriks
+        if (tabId === 'matriks') _renderTabMatriksEvaluasi();
+    }
+
+    function _renderTabRekapKaryawan() {
+        const query = document.getElementById('lap-search-karyawan').value.toLowerCase().trim();
+        const infoDiv = document.getElementById('lap-rekap-info');
+        const emptyDiv = document.getElementById('lap-rekap-empty');
+        const tableContainer = document.getElementById('lap-rekap-table-container');
+        const tbody = document.getElementById('lap-rekap-tbody');
+
+        if (!query) {
+            infoDiv.classList.add('hidden');
+            tableContainer.classList.add('hidden');
+            emptyDiv.classList.remove('hidden');
+            return;
+        }
+
+        // Find matches in REAL (priority), then CERT, then LAT
+        let matchedSap = "";
+        let matchedName = "";
+
+        // Check REAL first for exact or partial
+        const allReal = DATA_REAL || [];
+        for (let r of allReal) {
+            if ((r.sapPeserta && String(r.sapPeserta).toLowerCase().includes(query)) ||
+                (r.namaPeserta && String(r.namaPeserta).toLowerCase().includes(query))) {
+                matchedSap = r.sapPeserta;
+                matchedName = r.namaPeserta;
+                break;
+            }
+        }
+
+        // If not in REAL, check CERT/LAT
+        if (!matchedSap) {
+            const allPlan = [...(DATA_CERT || []), ...(DATA_LAT || [])];
+            for (let p of allPlan) {
+                if ((p.sap && String(p.sap).toLowerCase().includes(query)) ||
+                    (p.nama && String(p.nama).toLowerCase().includes(query))) {
+                    matchedSap = p.sap;
+                    matchedName = p.nama;
+                    break;
+                }
+            }
+        }
+
+        if (!matchedSap) {
+            infoDiv.classList.add('hidden');
+            tableContainer.classList.add('hidden');
+            emptyDiv.classList.remove('hidden');
+            emptyDiv.innerText = "Karyawan tidak ditemukan. Coba kata kunci lain.";
+            return;
+        }
+
+        // Display Info
+        infoDiv.classList.remove('hidden');
+        document.getElementById('lap-rekap-nama').innerText = matchedName;
+        document.getElementById('lap-rekap-sap').innerText = matchedSap;
+        emptyDiv.classList.add('hidden');
+        tableContainer.classList.remove('hidden');
+
+        // Compile history
+        const history = [];
+
+        // Add Realization Data
+        allReal.forEach(r => {
+            if (String(r.sapPeserta) === String(matchedSap)) {
+                // Find L2 & L3
+                const l2Info = (DATA_L2 || []).find(x => String(x.pelaksanaanId) === String(r.id) && String(x.sap) === String(r.sapPeserta));
+                const l3Info = (DATA_L3 || []).find(x => String(x.pelaksanaanId) === String(r.id) && String(x.sap) === String(r.sapPeserta));
+
+                history.push({
+                    type: 'Realisasi',
+                    judul: r.courseTitle || '-',
+                    waktu: r.tahun || r.startDate || '-',
+                    l2: l2Info ? l2Info.postTest : '-',
+                    l3: l3Info ? l3Info.nilaiEvaluasi : '-',
+                    sortDate: r.startDate || '1970-01-01'
+                });
+            }
+        });
+
+        // Sub-sort and render
+        history.sort((a, b) => new Date(b.sortDate) - new Date(a.sortDate));
+
+        if (history.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="6" class="px-4 py-8 text-center text-gray-500 italic">Belum ada riwayat pelaksanaan untuk karyawan ini.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = history.map((h, i) => `
+  <tr class="hover:bg-indigo-50 transition-colors">
+    <td class="px-4 py-3 text-gray-500">${i + 1}</td>
+    <td class="px-4 py-3 font-medium text-gray-900">${h.judul}</td>
+    <td class="px-4 py-3 text-gray-600"><span class="px-2 py-1 bg-emerald-100 text-emerald-700 rounded text-xs font-bold">Pelaksanaan</span></td>
+    <td class="px-4 py-3 text-gray-600">${h.waktu}</td>
+    <td class="px-4 py-3 font-bold ${h.l2 !== '-' ? 'text-blue-600' : 'text-gray-400'}">${h.l2}</td>
+    <td class="px-4 py-3 font-bold ${h.l3 !== '-' ? 'text-orange-600' : 'text-gray-400'}">${h.l3}</td>
+  </tr>
+`).join('');
+        lucide.createIcons();
+    }
+
+    function _renderTabMatriksEvaluasi() {
+        const yearFilter = document.getElementById('lap-matriks-year').value;
+        const tbody = document.getElementById('lap-matriks-tbody');
+
+        // Group Realization by Course Title
+        const grouped = {};
+        (DATA_REAL || []).forEach(r => {
+            if (yearFilter !== 'ALL' && String(r.tahun) !== yearFilter) return;
+
+            const title = r.judulPelatihan || r.courseTitle || r.judul || 'Unknown Training';
+            if (!grouped[title]) {
+                grouped[title] = { pelIds: new Set(), thn: new Set(), totalHadir: 0 };
+            }
+            grouped[title].pelIds.add(String(r.id));
+            if (r.tahun) grouped[title].thn.add(r.tahun);
+            grouped[title].totalHadir++;
+        });
+
+        // Helper to normalize IDs for robust comparison (handles '123' vs '123.0' vs ' 123 ')
+        const normalizeId = (id) => {
+            if (id === null || id === undefined) return '';
+            let sid = String(id).trim();
+            if (sid.endsWith('.0')) sid = sid.substring(0, sid.length - 2);
+            return sid;
+        };
+
+        // Extract normalized IDs for each group
+        Object.keys(grouped).forEach(title => {
+            grouped[title].normIds = Array.from(grouped[title].pelIds).map(normalizeId);
+        });
+
+        // Calculate scores per group
+        const matrixData = [];
+        Object.keys(grouped).forEach(title => {
+            const g = grouped[title];
+            const normIds = g.normIds;
+
+            // Calc L1
+            let l1Sum = 0, l1Count = 0, l1Match = 0, textValL1 = "";
+            (DATA_L1 || []).forEach(l1 => {
+                const sid = normalizeId(l1.pelaksanaanId);
+                const l1Title = (l1.judulPelatihan || '').trim().toLowerCase();
+                const targetTitle = title.trim().toLowerCase();
+                const nameMatch = l1Title && l1Title === targetTitle;
+
+                if ((sid && normIds.includes(sid)) || nameMatch) {
+                    l1Match++;
+                    const strVal = String(l1.rataKeseluruhan || '').replace(',', '.').trim();
+                    const val = parseFloat(strVal);
+                    if (!isNaN(val)) {
+                        l1Sum += val; l1Count++;
+                    } else if (strVal !== '') {
+                        textValL1 = strVal;
+                    }
+                }
+            });
+
+            // Calc L2
+            let l2Sum = 0, l2Count = 0, l2Match = 0;
+            (DATA_L2 || []).forEach(l2 => {
+                const sid = normalizeId(l2.pelaksanaanId);
+                const l2Title = (l2.judulPelatihan || '').trim().toLowerCase();
+                const targetTitle = title.trim().toLowerCase();
+                const nameMatch = l2Title && l2Title === targetTitle;
+
+                if ((sid && normIds.includes(sid)) || nameMatch) {
+                    l2Match++;
+                    const pre = parseFloat(String(l2.preTest || '').replace(',', '.'));
+                    const post = parseFloat(String(l2.postTest || '').replace(',', '.'));
+                    if (!isNaN(pre) && !isNaN(post)) {
+                        l2Sum += post;
+                        l2Count++;
+                    }
+                }
+            });
+
+            // Calc L3
+            let l3Sum = 0, l3Count = 0, l3Match = 0, textValL3 = "";
+            (DATA_L3 || []).forEach(l3 => {
+                const sid = normalizeId(l3.pelaksanaanId);
+                const l3Title = (l3.judulPelatihan || '').trim().toLowerCase();
+                const targetTitle = title.trim().toLowerCase();
+                const nameMatch = l3Title && l3Title === targetTitle;
+
+                if ((sid && normIds.includes(sid)) || nameMatch) {
+                    l3Match++;
+                    const strVal = String(l3.nilaiEvaluasi || '').replace(',', '.').trim();
+                    const val = parseFloat(strVal);
+                    if (!isNaN(val)) {
+                        l3Sum += val; l3Count++;
+                    } else if (strVal !== '') {
+                        textValL3 = strVal;
+                    }
+                }
+            });
+
+            let l1Disp = "-", l2Disp = "-", l3Disp = "-";
+
+            // L1 Display Logic
+            if (l1Count > 0) l1Disp = (l1Sum / l1Count).toFixed(2);
+            else if (l1Match > 0) l1Disp = textValL1 ? textValL1 : "0";
+            else l1Disp = "-";
+
+            // L2 Display Logic
+            if (l2Count > 0) l2Disp = (l2Sum / l2Count).toFixed(2);
+            else if (l2Match > 0) l2Disp = "Pre/Post Kurang";
+            else l2Disp = "-";
+
+            // L3 Display Logic
+            if (l3Count > 0) l3Disp = (l3Sum / l3Count).toFixed(2);
+            else if (l3Match > 0) l3Disp = textValL3 ? textValL3 : "0";
+            else l3Disp = "-";
+
+            matrixData.push({
+                title: title,
+                tahun: Array.from(g.thn).join(', '),
+                l1: l1Disp,
+                l2: l2Disp,
+                l3: l3Disp
+            });
+        });
+
+        // Render
+        if (matrixData.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="6" class="px-4 py-8 text-center text-gray-500 italic">Data pelatihan pada tahun terpilih tidak tersedia.</td></tr>`;
+            return;
+        }
+
+        matrixData.sort((a, b) => {
+            const titleA = String(a.title || "");
+            const titleB = String(b.title || "");
+            return titleA.localeCompare(titleB);
+        });
+
+        tbody.innerHTML = matrixData.map((m, i) => `
+  <tr class="hover:bg-indigo-50 transition-colors">
+    <td class="px-4 py-3 text-gray-500 border-r border-gray-100">${i + 1}</td>
+    <td class="px-4 py-3 font-semibold text-gray-800 border-r border-gray-100">${m.title}</td>
+    <td class="px-4 py-3 text-gray-600 border-r border-gray-100">${m.tahun}</td>
+    <td class="px-4 py-3 text-center font-bold ${m.l1 !== '-' ? 'text-purple-700' : 'text-gray-300'} border-r border-gray-100">${m.l1}</td>
+    <td class="px-4 py-3 text-center font-bold ${m.l2 !== '-' ? 'text-blue-700' : 'text-gray-300'} border-r border-gray-100">${m.l2}</td>
+    <td class="px-4 py-3 text-center font-bold ${m.l3 !== '-' ? 'text-orange-700' : 'text-gray-300'}">${m.l3}</td>
+  </tr>
+`).join('');
+        lucide.createIcons();
+    }
+
+    function exportToExcel() {
+        if (typeof XLSX === 'undefined') {
+            alert('Library Export belum termuat (XLSX undefined). Harap segarkan halaman.');
+            return;
+        }
+
+        const type = document.getElementById('lap-export-type').value;
+        let dataToExport = [];
+        let sheetName = "Data";
+        let filename = "Data_" + type + ".xlsx";
+
+        switch (type) {
+            case 'realisasi': dataToExport = DATA_REAL; sheetName = "Pelaksanaan"; break;
+            case 'cert': dataToExport = DATA_CERT; sheetName = "Perencanaan_Sertifikasi"; break;
+            case 'lat': dataToExport = DATA_LAT; sheetName = "Perencanaan_LAT"; break;
+            case 'l1': dataToExport = DATA_L1; sheetName = "Evaluasi_L1"; break;
+            case 'l2': dataToExport = DATA_L2; sheetName = "Evaluasi_L2"; break;
+            case 'l3': dataToExport = DATA_L3; sheetName = "Evaluasi_L3"; break;
+            default: dataToExport = [];
+        }
+
+        if (!dataToExport || dataToExport.length === 0) {
+            alert('Tidak ada data yang tersedia untuk diekspor pada kategori ini.');
+            return;
+        }
+
+        try {
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.json_to_sheet(dataToExport);
+            XLSX.utils.book_append_sheet(wb, ws, sheetName);
+            XLSX.writeFile(wb, filename);
+
+            showCustomDialog({
+                title: 'Ekspor Berhasil',
+                message: 'Data sedang diunduh: ' + filename,
+                icon: 'download',
+                iconColor: 'emerald'
+            });
+        } catch (e) {
+            console.error(e);
+            showCustomDialog({
+                title: 'Ekspor Gagal',
+                message: 'Terjadi kesalahan: ' + e.message,
+                icon: 'alert-circle',
+                iconColor: 'red'
+            });
+        }
+    }
+
+    /* ─────────────────────────────────────────────────────────────────────────────
+     * VENDOR PAGE LOGIC
+     * ───────────────────────────────────────────────────────────────────────────── */
+    function filterVendorByStatus(btn, status) {
+        // Update hidden input
+        const hiddenInput = document.getElementById('vendor-filter-status');
+        if (hiddenInput) hiddenInput.value = status;
+
+        // Update UI buttons
+        document.querySelectorAll('.vendor-filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        // Render table
+        renderVendorTable();
+    }
+
+    function renderVendorTable() {
+        const tbody = document.getElementById('vendor-table-body');
+        const badge = document.getElementById('vendor-notification-badge');
+        if (!tbody) return;
+
+        const searchQuery = document.getElementById('vendor-search-input')?.value.toLowerCase() || "";
+        const statusFilter = document.getElementById('vendor-filter-status')?.value || "";
+
+        if (!DATA_VENDOR || DATA_VENDOR.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="5" class="px-6 py-10 text-center text-gray-500 italic">Belum ada data pengajuan vendor.</td></tr>`;
+            if (badge) badge.classList.add('hidden');
+            return;
+        }
+
+        // --- 1. UPDATE SIDEBAR BADGE ---
+        const pendingCount = DATA_VENDOR.filter(v => v.status === "Pending").length;
+        if (badge) {
+            if (pendingCount > 0) {
+                badge.innerText = pendingCount;
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
+        }
+
+        // --- 2. GROUP & SORT DATA ---
+        const sortedData = [...DATA_VENDOR].sort((a, b) => {
+            if (a.status === "Pending" && b.status !== "Pending") return -1;
+            if (a.status !== "Pending" && b.status === "Pending") return 1;
+            return (b.timestamp || 0) - (a.timestamp || 0);
+        });
+
+        const groups = {};
+        const now = Date.now();
+        const oneDayMs = 24 * 60 * 60 * 1000;
+
+        sortedData.forEach(v => {
+            const matchesSearch = (v.namaVendor + " " + v.namaSertifikasi).toLowerCase().includes(searchQuery);
+            const matchesStatus = statusFilter === "" || v.status === statusFilter;
+
+            if (matchesSearch && matchesStatus) {
+                if (!groups[v.namaVendor]) {
+                    groups[v.namaVendor] = {
+                        name: v.namaVendor,
+                        lsp: v.namaLsp,
+                        pic: v.picVendor,
+                        items: [],
+                        hasNew: false,
+                        hasPending: false
+                    };
+                }
+                const isNew = (v.timestamp && (now - v.timestamp) < oneDayMs);
+                if (isNew) groups[v.namaVendor].hasNew = true;
+                if (v.status === "Pending") groups[v.namaVendor].hasPending = true;
+
+                groups[v.namaVendor].items.push({ ...v, isNew });
+            }
+        });
+
+        const vendorNames = Object.keys(groups);
+
+        if (vendorNames.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="5" class="px-6 py-10 text-center text-gray-400 italic">Tidak ada data yang cocok.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = vendorNames.map((name, i) => {
+            const g = groups[name];
+            const groupId = `vendor-group-${i}`;
+
+            return `
+            <tr onclick="toggleVendorAccordion('${groupId}')" class="cursor-pointer bg-white dark:bg-slate-900 hover:bg-indigo-50/50 dark:hover:bg-slate-800 transition-all border-b border-gray-100 dark:border-slate-800 group">
+                <td class="px-6 py-5 text-sm text-gray-500 font-mono">${i + 1}</td>
+                <td class="px-6 py-5">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-2xl flex items-center justify-center font-bold text-sm shadow-sm border border-indigo-100 dark:border-indigo-500/20 group-hover:bg-indigo-600 group-hover:text-white transition-all">
+                            ${name.charAt(0)}
+                        </div>
+                        <div>
+                            <div class="flex items-center gap-2">
+                                <div class="text-sm font-bold text-gray-900 dark:text-gray-100">${name}</div>
+                                ${g.hasNew ? '<span class="px-1.5 py-0.5 bg-emerald-500 text-white text-[8px] font-black rounded-md animate-pulse">BARU</span>' : ''}
+                            </div>
+                            <div class="text-[10px] text-gray-400 dark:text-gray-500 uppercase tracking-tight">${g.lsp || '-'}</div>
+                        </div>
+                    </div>
+                </td>
+                <td class="px-6 py-5 text-center">
+                    <span class="inline-flex items-center px-3 py-1 ${g.hasPending ? 'bg-amber-50 text-amber-700 border-amber-100 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20' : 'bg-indigo-50 text-indigo-700 border-indigo-100 dark:bg-indigo-500/10 dark:text-indigo-400 dark:border-indigo-500/20'} rounded-xl text-[10px] font-bold border">
+                        ${g.items.length} Ajuan
+                    </span>
+                </td>
+                <td class="px-6 py-5">
+                    <div class="text-sm text-gray-700 dark:text-gray-300 font-medium">${g.pic}</div>
+                </td>
+                <td class="px-6 py-5 text-right">
+                    <div class="flex justify-end items-center gap-4">
+                        <div class="text-[10px] text-gray-400 font-medium uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">Klik detail</div>
+                        <i data-lucide="chevron-down" id="arrow-${groupId}" class="w-5 h-5 text-gray-300 transition-transform"></i>
+                    </div>
+                </td>
+            </tr>
+            <tr id="${groupId}" class="hidden bg-gray-50/30 dark:bg-slate-800/20">
+                <td colspan="5" class="p-0">
+                    <div class="p-4 bg-gray-50/50 dark:bg-slate-900/50 border-b border-gray-200 dark:border-slate-800">
+                        <table class="w-full text-left bg-white dark:bg-slate-900 rounded-2xl border border-gray-200 dark:border-slate-800 shadow-sm overflow-hidden">
+                            <thead class="bg-gray-100/50 dark:bg-slate-800/50">
+                                <tr>
+                                    <th class="px-4 py-3 text-[10px] font-bold text-gray-400 uppercase">Sertifikasi</th>
+                                    <th class="px-4 py-3 text-[10px] font-bold text-gray-400 uppercase">Biaya</th>
+                                    <th class="px-4 py-3 text-[10px] font-bold text-gray-400 uppercase">Metode</th>
+                                    <th class="px-4 py-3 text-[10px] font-bold text-gray-400 uppercase">Tempat</th>
+                                    <th class="px-4 py-3 text-[10px] font-bold text-gray-400 uppercase">Status</th>
+                                    <th class="px-4 py-3 text-[10px] font-bold text-gray-400 uppercase">Penyetuju</th>
+                                    <th class="px-4 py-3 text-[10px] font-bold text-gray-400 uppercase">Waktu</th>
+                                    <th class="px-4 py-3 text-[10px] font-bold text-gray-400 uppercase">Email PIC</th>
+                                    <th class="px-4 py-3 text-[10px] font-bold text-gray-400 uppercase text-center">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-100 dark:divide-slate-800">
+                                ${g.items.map(v => {
+                let statusClass = "bg-gray-100 text-gray-600 dark:bg-slate-800 dark:text-gray-400";
+                if (v.status === "Disetujui") statusClass = "bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400";
+                if (v.status === "Ditolak") statusClass = "bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400";
+                if (v.status === "Pending") statusClass = "bg-indigo-100 text-indigo-700 font-bold animate-pulse dark:bg-indigo-500/10 dark:text-indigo-400";
+
+                return `
+                                    <tr class="hover:bg-gray-50 dark:hover:bg-slate-800/50 transition-colors">
+                                        <td class="px-4 py-3">
+                                            <div class="flex items-center gap-2">
+                                                <div class="text-xs font-bold text-gray-800 dark:text-gray-200">${v.namaSertifikasi}</div>
+                                                ${v.isNew ? '<span class="px-1 py-0.5 bg-emerald-100 text-emerald-600 text-[7px] font-bold rounded">NEW</span>' : ''}
+                                            </div>
+                                            <div class="text-[9px] text-gray-500 uppercase">${v.jenisSertifikasi || '-'}</div>
+                                        </td>
+                                        <td class="px-4 py-3 text-xs font-mono font-bold text-gray-700 dark:text-gray-300">${v.biaya}</td>
+                                        <td class="px-4 py-3 text-xs text-gray-600 dark:text-gray-400">${v.metode}</td>
+                                        <td class="px-4 py-3 text-xs text-gray-600 dark:text-gray-400">${v.tempat}</td>
+                                        <td class="px-4 py-3">
+                                            <span class="px-2 py-0.5 rounded-full text-[9px] uppercase font-bold ${statusClass}">
+                                                ${v.status || 'Pending'}
+                                            </span>
+                                        </td>
+                                        <td class="px-4 py-3 text-[10px] text-gray-500 dark:text-gray-400">${v.approver}</td>
+                                        <td class="px-4 py-3 text-[10px] text-gray-500 dark:text-gray-400">${v.approvalTime}</td>
+                                        <td class="px-4 py-3 text-[10px] text-indigo-600 dark:text-indigo-400 font-medium">${v.emailPic}</td>
+                                        <td class="px-4 py-3">
+                                            <div class="flex justify-center gap-2">
+                                                ${(() => {
+                        if (!v.file || v.file === '-' || v.file.trim() === '') return '';
+                        let url = v.file.trim();
+                        if (!url.startsWith('http')) url = 'https://' + url;
+                        return `<a href="${url}" target="_blank" class="w-7 h-7 flex items-center justify-center bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-400 rounded-full hover:bg-blue-600 hover:text-white transition-all shadow-sm border border-blue-100 dark:border-blue-500/20" title="Lihat Brosur"><i data-lucide="file-text" class="w-3.5 h-3.5"></i></a>`;
+                    })()}
+                                                ${v.status === 'Pending' ? `
+                                                    <button onclick="updateVendorStatusAction(${v.rowIndex}, 'Disetujui')" 
+                                                        class="w-7 h-7 flex items-center justify-center bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-full hover:bg-emerald-600 hover:text-white transition-all shadow-sm border border-emerald-100 dark:border-emerald-500/20" title="Setujui">
+                                                        <i data-lucide="check" class="w-4 h-4"></i>
+                                                    </button>
+                                                    <button onclick="updateVendorStatusAction(${v.rowIndex}, 'Ditolak')" 
+                                                        class="w-7 h-7 flex items-center justify-center bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 rounded-full hover:bg-red-600 hover:text-white transition-all shadow-sm border border-red-100 dark:border-red-500/20" title="Tolak">
+                                                        <i data-lucide="x" class="w-4 h-4"></i>
+                                                    </button>
+                                                ` : `<div class="flex items-center gap-1 text-[9px] text-gray-400 italic font-medium"><i data-lucide="lock" class="w-3 h-3"></i></div>`}
+                                            </div>
+                                        </td>
+                                    </tr>`;
+            }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                </td>
+            </tr>
+            `;
+        }).join('');
+        lucide.createIcons();
+    }
+
+    function toggleVendorAccordion(id) {
+        const el = document.getElementById(id);
+        const parentRow = el ? el.previousElementSibling : null;
+        const arrow = document.getElementById('arrow-' + id);
+        const tbody = document.getElementById('vendor-table-body');
+
+        if (!el || !parentRow || !tbody) return;
+
+        const isOpening = el.classList.contains('hidden');
+
+        // 1. Reset all rows and hide all other details
+        document.querySelectorAll('#vendor-table-body tr').forEach(tr => {
+            tr.classList.remove('active-focus');
+            // If it's a detail row (has an ID) and not the one we are toggling
+            if (tr.id && tr.id.startsWith('vendor-group-') && tr.id !== id) {
+                tr.classList.add('hidden');
+                const otherArrow = document.getElementById('arrow-' + tr.id);
+                if (otherArrow) otherArrow.style.transform = 'rotate(0deg)';
+            }
+        });
+
+        if (isOpening) {
+            // 2. Open current and apply focus
+            el.classList.remove('hidden');
+            parentRow.classList.add('active-focus');
+            el.classList.add('active-focus');
+            tbody.classList.add('focus-mode');
+            if (arrow) arrow.style.transform = 'rotate(180deg)';
+        } else {
+            // 3. Close current and remove focus
+            el.classList.add('hidden');
+            tbody.classList.remove('focus-mode');
+            if (arrow) arrow.style.transform = 'rotate(0deg)';
+        }
+    }
+    function updateVendorStatusAction(rowIndex, status) {
+        const isApprove = status === 'Disetujui';
+
+        showCustomDialog({
+            type: 'confirm',
+            title: isApprove ? 'Setujui Pengajuan' : 'Tolak Pengajuan',
+            message: isApprove ? 'Pastikan email penyetuju sudah benar sebelum konfirmasi.' : `Apakah Anda yakin ingin MENOLAK pengajuan vendor ini?`,
+            icon: isApprove ? 'check-circle' : 'x-circle',
+            confirmText: isApprove ? 'Konfirmasi & Kirim' : 'Tolak Sekarang',
+            confirmColor: isApprove ? 'emerald' : 'red',
+            showInput: isApprove,
+            inputValue: CURRENT_USER_EMAIL,
+            callback: (result) => {
+                if (result) {
+                    if (loadingContainer) loadingContainer.classList.remove('hidden');
+                    const token = localStorage.getItem('sessionToken');
+                    google.script.run
+                        .withSuccessHandler(function (response) {
+                            if (loadingContainer) loadingContainer.classList.add('hidden');
+                            if (response.success) {
+                                DATA_VENDOR = response.data;
+                                renderVendorTable();
+                                notifySuccess(`Berhasil: Pengajuan telah ${status.toLowerCase()}.`);
+                            } else {
+                                notifyError("Gagal update status: " + response.error);
+                            }
+                        })
+                        .withFailureHandler(onFailure)
+                        .updateVendorStatus(token, rowIndex, status);
+                }
+            }
+        });
+    }
+
+    function formatIndonesianDate(dateStr) {
+        if (!dateStr || dateStr === "-") return "-";
+        try {
+            const d = new Date(dateStr);
+            if (isNaN(d.getTime())) return dateStr;
+            const day = d.getDate();
+            const months = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+            const month = months[d.getMonth()];
+            const year = d.getFullYear();
+            return `${day} ${month} ${year}`;
+        } catch (e) {
+            return dateStr;
+        }
+    }
+
+    function renderKaryawanTable() {
+        const tbody = document.getElementById('karyawan-table-body');
+        if (!tbody) return;
+
+        const searchQuery = document.getElementById('karyawan-search-input')?.value.toLowerCase() || "";
+
+        if (!DATA_KARYAWAN || DATA_KARYAWAN.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-10 text-center text-gray-500 italic">Belum ada data ajuan karyawan.</td></tr>`;
+            return;
+        }
+
+        const filtered = DATA_KARYAWAN.filter(v => {
+            return (v.namaPemateri + " " + v.sap + " " + v.judulPemateri).toLowerCase().includes(searchQuery);
+        });
+
+        if (filtered.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-10 text-center text-gray-400 italic">Tidak ada data yang cocok.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = filtered.map((v, idx) => {
+            return `
+            <tr class="bg-white dark:bg-slate-900 hover:bg-indigo-50/50 dark:hover:bg-slate-800 transition-all border-b border-gray-100 dark:border-slate-800 group">
+                <td class="px-6 py-5 text-sm text-gray-500 font-mono">${idx + 1}</td>
+                <td class="px-6 py-5">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded-2xl flex items-center justify-center font-bold text-sm shadow-sm border border-indigo-100 dark:border-indigo-500/20 group-hover:bg-indigo-600 group-hover:text-white transition-all">
+                            ${v.namaPemateri.charAt(0)}
+                        </div>
+                        <div>
+                            <div class="text-sm font-bold text-gray-900 dark:text-gray-100">${v.namaPemateri}</div>
+                            <div class="text-[10px] text-gray-400 dark:text-gray-500 uppercase font-mono tracking-wider">SAP: ${v.sap || '-'}</div>
+                        </div>
+                    </div>
+                </td>
+                <td class="px-6 py-5">
+                    <div class="text-sm text-gray-700 dark:text-gray-300 font-medium">${v.judulPemateri}</div>
+                </td>
+                <td class="px-6 py-5 text-center">
+                    <span class="inline-flex items-center px-3 py-1 bg-amber-50 text-amber-700 border-amber-100 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/20 rounded-xl text-xs font-bold border">
+                        ${v.pretest}
+                    </span>
+                </td>
+                <td class="px-6 py-5 text-center">
+                    <span class="inline-flex items-center px-3 py-1 bg-emerald-50 text-emerald-700 border-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-400 dark:border-emerald-500/20 rounded-xl text-xs font-bold border">
+                        ${v.postest}
+                    </span>
+                </td>
+                <td class="px-6 py-5 text-right text-xs text-gray-500 dark:text-gray-400">
+                    ${formatIndonesianDate(v.timestamp)}
+                </td>
+            </tr>
+            `;
+        }).join('');
+    }
+</script>
