@@ -1,153 +1,117 @@
-<style>
-    /* Sidebar Styles */
-    .nav-item {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        padding: 12px;
-        margin-bottom: 4px;
-        border-radius: 12px;
-        color: #6b7280;
-        text-decoration: none;
-        cursor: pointer;
-        transition: 0.3s;
-    }
-
-    .nav-item:hover {
-        background-color: #f9fafb;
-        color: #1f2937;
-    }
-
-    .nav-item.active {
-        background-color: #e0e7ff;
-        color: #4f46e5;
-        font-weight: 600;
-    }
-
-    .nav-label {
-        font-size: 11px;
-        text-transform: uppercase;
-        color: #9ca3af;
-        font-weight: 700;
-        margin: 24px 0 8px 12px;
-        letter-spacing: 0.5px;
-    }
-</style>
-
-<div class="sidebar"
-    style="width: 260px; height: 100vh; background: white; border-right: 1px solid #e5e7eb; display: flex; flex-direction: column;">
-
-    <div style="padding: 24px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid #f3f4f6;">
+<div
+    class="w-72 bg-white dark:bg-slate-900 border-r border-gray-100 dark:border-slate-800 flex flex-col transition-all duration-300 relative z-20">
+    <!-- Header/Logo Area -->
+    <div class="p-8 pb-10 flex items-center gap-3">
         <div
-            style="width: 32px; height: 32px; background: #4f46e5; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: white;">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 2L2 7l10 5 10-5-10-5z" />
-                <path d="M2 17l10 5 10-5" />
-                <path d="M2 12l10 5 10-5" />
-            </svg>
+            class="w-11 h-11 bg-[#6366F1] rounded-2xl flex items-center justify-center shadow-lg shadow-indigo-200 dark:shadow-none">
+            <span class="text-white font-bold text-xl">S</span>
         </div>
-        <span style="font-weight: 700; font-size: 18px; color: #1f2937;">SertifikasiApp</span>
+        <div>
+            <h1 class="text-[#1E1B4B] dark:text-gray-100 font-bold text-lg tracking-tight leading-none">Sertifikasi</h1>
+            <p class="text-gray-400 text-xs mt-1">Sistem Informasi</p>
+        </div>
     </div>
 
-    <div style="flex: 1; overflow-y: auto; padding: 24px 16px;">
-
-        <div class="nav-label">Menu Utama</div>
-
-        <a onclick="setActive(this, 'Dashboard', 'page-dashboard')" class="nav-item active">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="3" y="3" width="7" height="7" />
-                <rect x="14" y="3" width="7" height="7" />
-                <rect x="14" y="14" width="7" height="7" />
-                <rect x="3" y="14" width="7" height="7" />
-            </svg>
-            <span>Dashboard</span>
+    <!-- Navigation Area -->
+    <div class="flex-1 overflow-y-auto px-4 space-y-1" id="sidebar-nav">
+        <!-- Dashboard Link -->
+        <a href="#" id="nav-page-dashboard" onclick="openSubPage('page-dashboard', 'Dashboard'); return false;"
+            class="nav-link group flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-indigo-50/50 dark:bg-indigo-500/10 text-[#6366F1] dark:text-indigo-400 font-bold transition-all relative">
+            <div class="active-indicator absolute left-0 top-1/4 bottom-1/4 w-1 bg-[#6366F1] rounded-r-full"></div>
+            <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
+            <span class="text-sm">Dashboard</span>
         </a>
 
-        <a onclick="setActive(this, 'Perencanaan', 'page-perencanaan')" class="nav-item">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                <line x1="16" y1="2" x2="16" y2="6" />
-                <line x1="8" y1="2" x2="8" y2="6" />
-                <line x1="3" y1="10" x2="21" y2="10" />
-            </svg>
-            <span>Perencanaan</span>
+        <div class="pt-8 pb-3 px-4">
+            <p class="text-[10px] font-bold text-gray-300 dark:text-slate-600 uppercase tracking-widest">MANAJEMEN DATA
+            </p>
+        </div>
+
+        <!-- Vendor Link -->
+        <a href="#" id="nav-page-vendor" onclick="openSubPage('page-vendor', 'Ajuan Vendor'); return false;"
+            class="nav-link group flex items-center justify-between px-4 py-3.5 rounded-2xl text-gray-500 dark:text-gray-400 font-medium hover:bg-gray-50 dark:hover:bg-slate-800 transition-all relative">
+            <div class="flex items-center gap-3">
+                <div class="active-indicator absolute left-0 top-1/4 bottom-1/4 w-1 bg-[#6366F1] rounded-r-full hidden">
+                </div>
+                <i data-lucide="users" class="w-5 h-5 text-gray-400 group-hover:text-[#6366F1]"></i>
+                <span class="text-sm">Ajuan Vendor</span>
+            </div>
+            <div id="vendor-notification-badge"
+                class="hidden min-w-[20px] h-5 px-1.5 flex items-center justify-center bg-red-500 text-white text-[10px] font-bold rounded-full shadow-sm">
+                0</div>
         </a>
 
-        <a onclick="setActive(this, 'Pelaksanaan', 'page-pelaksanaan')" class="nav-item">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                <polyline points="14 2 14 8 20 8" />
-                <line x1="16" y1="13" x2="8" y2="13" />
-                <line x1="16" y1="17" x2="8" y2="17" />
-                <polyline points="10 9 9 9 8 9" />
-            </svg>
-            <span>Pelaksanaan</span>
+        <!-- Ajuan Karyawan Link -->
+        <a href="#" id="nav-page-karyawan" onclick="openSubPage('page-karyawan', 'Ajuan LND'); return false;"
+            class="nav-link group flex items-center justify-between px-4 py-3.5 rounded-2xl text-gray-500 dark:text-gray-400 font-medium hover:bg-gray-50 dark:hover:bg-slate-800 transition-all relative">
+            <div class="flex items-center gap-3">
+                <div class="active-indicator absolute left-0 top-1/4 bottom-1/4 w-1 bg-[#6366F1] rounded-r-full hidden">
+                </div>
+                <i data-lucide="user-check" class="w-5 h-5 text-gray-400 group-hover:text-[#6366F1]"></i>
+                <span class="text-sm">Ajuan LND</span>
+            </div>
         </a>
 
-        <a onclick="alert('Fitur Evaluasi belum tersedia')" class="nav-item" style="opacity: 0.5;">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="10" />
-                <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
-                <line x1="12" y1="17" x2="12.01" y2="17" />
-            </svg>
-            <span>Evaluasi</span>
+        <!-- Perencanaan Link -->
+        <a href="#" id="nav-page-perencanaan"
+            onclick="openSubPage('page-perencanaan', 'Perencanaan Pelatihan'); return false;"
+            class="nav-link group flex items-center gap-3 px-4 py-3.5 rounded-2xl text-gray-500 dark:text-gray-400 font-medium hover:bg-gray-50 dark:hover:bg-slate-800 transition-all relative">
+            <div class="active-indicator absolute left-0 top-1/4 bottom-1/4 w-1 bg-[#6366F1] rounded-r-full hidden">
+            </div>
+            <i data-lucide="calendar" class="w-5 h-5 text-gray-400 group-hover:text-[#6366F1]"></i>
+            <span class="text-sm">Perencanaan</span>
         </a>
 
-        <div class="nav-label">Laporan & Analisis</div>
-
-        <a onclick="alert('Fitur Analisis belum tersedia')" class="nav-item" style="opacity: 0.5;">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="18" y1="20" x2="18" y2="10" />
-                <line x1="12" y1="20" x2="12" y2="4" />
-                <line x1="6" y1="20" x2="6" y2="14" />
-            </svg>
-            <span>Analisis</span>
+        <!-- Pelaksanaan Link -->
+        <a href="#" id="nav-page-pelaksanaan"
+            onclick="openSubPage('page-pelaksanaan', 'Data Pelaksanaan'); return false;"
+            class="nav-link group flex items-center gap-3 px-4 py-3.5 rounded-2xl text-gray-500 dark:text-gray-400 font-medium hover:bg-gray-50 dark:hover:bg-slate-800 transition-all relative">
+            <div class="active-indicator absolute left-0 top-1/4 bottom-1/4 w-1 bg-[#6366F1] rounded-r-full hidden">
+            </div>
+            <i data-lucide="clipboard-check" class="w-5 h-5 text-gray-400 group-hover:text-[#6366F1]"></i>
+            <span class="text-sm">Pelaksanaan</span>
         </a>
 
-        <a onclick="alert('Fitur Laporan belum tersedia')" class="nav-item" style="opacity: 0.5;">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                <polyline points="14 2 14 8 20 8" />
-                <line x1="16" y1="13" x2="8" y2="13" />
-                <line x1="16" y1="17" x2="8" y2="17" />
-                <polyline points="10 9 9 9 8 9" />
-            </svg>
-            <span>Laporan</span>
+        <!-- Evaluasi Link -->
+        <a href="#" id="nav-page-evaluasi"
+            onclick="openSubPage('page-evaluasi', 'Evaluasi Pembelajaran'); return false;"
+            class="nav-link group flex items-center gap-3 px-4 py-3.5 rounded-2xl text-gray-500 font-medium hover:bg-gray-50 transition-all relative">
+            <div class="active-indicator absolute left-0 top-1/4 bottom-1/4 w-1 bg-[#6366F1] rounded-r-full hidden">
+            </div>
+            <i data-lucide="clipboard-list" class="w-5 h-5 text-gray-400 group-hover:text-[#6366F1]"></i>
+            <span class="text-sm">Evaluasi Data</span>
         </a>
 
-        <div class="nav-label">Sistem Pengaturan</div>
+        <div class="pt-8 pb-3 px-4">
+            <p class="text-[10px] font-bold text-gray-300 uppercase tracking-widest">LAPORAN & INSIGHT</p>
+        </div>
 
-        <a onclick="alert('Fitur Pengaturan belum tersedia')" class="nav-item" style="opacity: 0.5;">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="3" />
-                <path
-                    d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
-            </svg>
-            <span>Pengaturan</span>
+        <!-- Analisis Link -->
+        <a href="#" id="nav-page-analisis" onclick="openSubPage('page-analisis', 'Analisis Data'); return false;"
+            class="nav-link group flex items-center gap-3 px-4 py-3.5 rounded-2xl text-gray-500 font-medium hover:bg-gray-50 transition-all relative">
+            <div class="active-indicator absolute left-0 top-1/4 bottom-1/4 w-1 bg-[#6366F1] rounded-r-full hidden">
+            </div>
+            <i data-lucide="line-chart" class="w-5 h-5 text-gray-400 group-hover:text-[#6366F1]"></i>
+            <span class="text-sm">Analisis Data</span>
         </a>
 
+        <!-- Laporan Link -->
+        <a href="#" id="nav-page-laporan" onclick="openSubPage('page-laporan', 'Laporan Data'); return false;"
+            class="nav-link group flex items-center gap-3 px-4 py-3.5 rounded-2xl text-gray-500 font-medium hover:bg-gray-50 transition-all relative">
+            <div class="active-indicator absolute left-0 top-1/4 bottom-1/4 w-1 bg-[#6366F1] rounded-r-full hidden">
+            </div>
+            <i data-lucide="file-output" class="w-5 h-5 text-gray-400 group-hover:text-[#6366F1]"></i>
+            <span class="text-sm">Laporan & Ekspor</span>
+        </a>
+
+        <!-- Logout Link -->
+        <div class="pt-8 pb-3 px-4">
+            <p class="text-[10px] font-bold text-gray-300 dark:text-slate-600 uppercase tracking-widest">AKSES</p>
+        </div>
+        <a href="#" id="btn-logout" onclick="handleLogout(); return false;"
+            class="nav-link group flex items-center gap-3 px-4 py-3.5 rounded-2xl text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 font-semibold transition-all relative">
+            <i data-lucide="log-out" class="w-5 h-5 text-red-400 group-hover:text-red-500"></i>
+            <span class="text-sm">Logout</span>
+        </a>
     </div>
 </div>
-
-<script>
-    function setActive(element, pageName, targetId) {
-        // UI Update
-        document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
-        element.classList.add('active');
-
-        // Call Main Page Function
-        if (typeof openSubPage === 'function') {
-            openSubPage(targetId, pageName);
-        } else {
-            console.error('openSubPage function not found!');
-        }
-    }
-</script>
